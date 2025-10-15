@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  intranet_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: intranet             # Nome que o Nginx proxy vai usar!
+    expose:
+      - "3000"                             # Só expõe internamente para o proxy
+    depends_on:
+      - intranet_backend
+    networks:
+      - appnet
+      - proxy
+
+  intranet_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: intranet_backend
+    expose:
+      - "4000"
+    env_file:
+      - ./backend/.env
+    networks:
+      - appnet
+      - proxy
+
+
+networks:
+  appnet:
+    driver: bridge
+  proxy:
+    external: true
