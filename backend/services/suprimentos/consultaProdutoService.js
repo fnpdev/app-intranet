@@ -15,8 +15,35 @@ class consultaprodutoervice {
  */
   async consultaProdutoPage(codProduto) {
 
+    // Função para montar as datas do kardax
+    function getDatasKardex() {
+      const hoje = new Date();
 
+      // Último dia do mês anterior
+      const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+      const dataSaldoInicial = formatarData(ultimoDiaMesAnterior);
 
+      // Primeiro e último dia do mês atual
+      const primeiroDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const ultimoDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+
+      const dataInicial = formatarData(primeiroDiaMesAtual);
+      const dataFinal = formatarData(ultimoDiaMesAtual);
+
+      return {
+        dataSaldoInicial,
+        dataInicial,
+        dataFinal
+      };
+    }
+
+    // Função auxiliar para formatar AAAAMMDD
+    function formatarData(data) {
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}${mes}${dia}`;
+    }
     // Função robusta para montar Kardex e retornar apenas itens com movimento
     function montarKardex(dados) {
       const {
@@ -117,13 +144,13 @@ class consultaprodutoervice {
     }
 
 
-
+    let periodo = getDatasKardex()
 
     let codFilial = '01';
-    let dataSaldoInicial = '20250930'
-    let dataInicial = '20251001'
-    let dataFinal = '20251031'
-
+    let dataSaldoInicial = periodo.dataSaldoInicial
+    let dataInicial = periodo.dataInicial
+    let dataFinal = periodo.dataFinal
+    
     let produto = await this.db.executeQuery(
       this.queries.produto.buscarPorCodigo,
       { codProduto, codFilial }
