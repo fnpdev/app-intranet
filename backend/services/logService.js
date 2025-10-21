@@ -1,14 +1,6 @@
 // services/logService.js
-const { Pool } = require('pg');
+const { query  } = require('../config/db_postgres');
 require('dotenv').config();
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 5432,
-});
 
 /**
  * Registra log de autenticação/acesso no banco.
@@ -18,11 +10,9 @@ const pool = new Pool({
  * @param {boolean} log.success
  * @param {string} log.message
  */
-
-
 async function logEvent({ username, ip_address, success, message }) {
   try {
-    await pool.query(
+    await query(
       `INSERT INTO intranet_access_logs (username, ip_address, success, message)
        VALUES ($1, $2, $3, $4)`,
       [username, ip_address, success, message]
@@ -34,3 +24,6 @@ async function logEvent({ username, ip_address, success, message }) {
 }
 
 module.exports = { logEvent };
+
+
+

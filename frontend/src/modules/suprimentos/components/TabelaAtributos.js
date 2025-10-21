@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   Typography, Table, TableBody, TableCell,
-  TableHead, TableRow, IconButton
+  TableHead, TableRow, IconButton, Box
 } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
+import { materialPalette } from '../../../utils/materialPalette';
 
 export default function TabelaAtributos({ dados }) {
   if (!dados || dados.length === 0) return (
@@ -12,24 +13,43 @@ export default function TabelaAtributos({ dados }) {
     </Typography>
   );
 
-  // Filtra as colunas, removendo qualquer atributo que contenha "link"
+  // Verifica se existe algum "cor_status" para mostrar a coluna do círculo
+  const temCorFundo = dados.some(item => item.cor_status);
+
+  // Remove atributos de link e cor_status das colunas visíveis
   const todasColunas = Object.keys(dados[0]);
-  const linkCols = todasColunas.filter(col=>col.toLowerCase().startsWith('link_'));
-  const colunas = todasColunas.filter(col => !col.toLowerCase().startsWith('link_'));
+  const colunas = todasColunas.filter(
+    col => !col.toLowerCase().startsWith('link_') && col !== 'cor_status'
+  );
 
   // Função para abrir link em nova aba
   const handleLinkClick = (url) => {
     if (url && url.toString().trim()) {
-      // Adapta para sua base, pode ajustar se quiser outro prefixo ou usar url absoluto das APIs
-      const finalUrl = url.startsWith('http') ? url : `http://192.168.50.14:3000/suprimentos/${url}`;
+      const finalUrl = url.startsWith('http') ? url : `http://localhost:3000/suprimentos/${url}`;
       window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  // Função para extrair "cor_status" do formato "red[900]"
+  const getPaletteColor = (corFundo) => {
+    if (!corFundo) return undefined;
+    // Aceita formatos tipo "red[900]" ou "blue[A200]"
+    const match = corFundo.match(/^([a-zA-Z]+)\[(\w+)\]$/);
+    if (match) {
+      const cor = match[1];
+      const tonalidade = match[2];
+      return materialPalette[cor]?.[tonalidade];
+    }
+    return corFundo; // se não bater formato, retorna o que veio
   };
 
   return (
     <Table size="small">
       <TableHead>
         <TableRow>
+          {temCorFundo &&
+            <TableCell sx={{ width: 40, textAlign: 'center', bgcolor: '#e3eaf2' }} />
+          }
           {colunas.map((col) => (
             <TableCell
               key={col}
@@ -49,8 +69,24 @@ export default function TabelaAtributos({ dados }) {
       <TableBody>
         {dados.map((linha, idx) => (
           <TableRow key={idx} hover>
+            {/* Circulo colorido se existir cor_status */}
+            {temCorFundo &&
+              <TableCell align="center">
+                {'cor_status' in linha && linha.cor_status ?
+                  <Box
+                    sx={{
+                      display: 'inline-block',
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: getPaletteColor(linha.cor_status),
+                      border: '1.5px solid #eee'
+                    }}
+                  /> : null
+                }
+              </TableCell>
+            }
             {colunas.map((col) => {
-              // Procura o link correspondente
               const linkKey = `link_${col}`;
               const link = linha[linkKey];
               return (
@@ -63,8 +99,7 @@ export default function TabelaAtributos({ dados }) {
                   }}
                 >
                   {linha[col]}
-                  {/* Se houver link específico para essa coluna, coloca o botão */}
-                  {link && link.toString().trim() && (
+                  {!!link && (
                     <IconButton
                       size="small"
                       onClick={() => handleLinkClick(link)}
@@ -82,7 +117,7 @@ export default function TabelaAtributos({ dados }) {
                     </IconButton>
                   )}
                 </TableCell>
-              );
+              )
             })}
           </TableRow>
         ))}
@@ -90,4 +125,3 @@ export default function TabelaAtributos({ dados }) {
     </Table>
   );
 }
-

@@ -9,10 +9,11 @@ const { logEvent } = require('../services/logService');
 // Constants from env
 const LDAP_URL = process.env.LDAP_URL;
 const BASE_DN = process.env.BASE_DN;
-const JWT_SECRET = process.env.JWT_SECRET;
 const LDAP_BIND_DN = process.env.LDAP_BIND_DN;
 const LDAP_BIND_PASSWORD = process.env.LDAP_BIND_PASSWORD;
-const NODE_ENV = process.env.NODE_ENV;
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN;
+const environment = process.env.NODE_ENV;
 
 const MODULE_GROUPS = {
   intranet: process.env.INTRANET_GROUP,
@@ -124,14 +125,15 @@ async function controllerLogin(req, res) {
     });
 
 
-  if (NODE_ENV === 'development') {
+  if (environment === 'development') {
     return res.json({
       token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Imdlb3ZhbmUucHJlc3RlcyIsInBlcm1pc3Npb25zIjp7ImludHJhbmV0Ijp0cnVlLCJzdXByaW1lbnRvcyI6dHJ1ZSwicmgiOmZhbHNlfSwiYWRHcm91cHMiOlsiQ049R19JTlRSQU5FVF9BQ0VTU08sT1U9R3J1cG9zLE9VPU5vdmFfUGlyYXRpbmluZ2EsREM9Tm92YVBpcmF0aW5pbmdhLERDPWxvY2FsIiwiQ049R19JTlRSQU5FVF9TVVBSSU1FTlRPUyxPVT1HcnVwb3MsT1U9Tm92YV9QaXJhdGluaW5nYSxEQz1Ob3ZhUGlyYXRpbmluZ2EsREM9bG9jYWwiLCJDTj1HX1ZQTixPVT1WUE4sT1U9U2V0b3JlcyxPVT1Ob3ZhX1BpcmF0aW5pbmdhLERDPU5vdmFQaXJhdGluaW5nYSxEQz1sb2NhbCIsIkNOPVFsaWtfU2Vuc2VfVXNlcnMsQ049VXNlcnMsREM9Tm92YVBpcmF0aW5pbmdhLERDPWxvY2FsIiwiQ049QWNlc3NvcyBUUyxDTj1Vc2VycyxEQz1Ob3ZhUGlyYXRpbmluZ2EsREM9bG9jYWwiLCJDTj1BZG1pbmlzdHJhdG9ycyxDTj1CdWlsdGluLERDPU5vdmFQaXJhdGluaW5nYSxEQz1sb2NhbCJdLCJpYXQiOjE3NjAxODg2MTIsImV4cCI6MTc2MDE5MjIxMn0.FVdBnrKx_32KSvKQyLLRh112aQJ7Ba_qM8LyyRb4j2A",
       permissions: {
         intranet: true,
         suprimentos: true,
         rh: true
-      }
+      },
+      environment
       
     });
   }
@@ -143,7 +145,7 @@ async function controllerLogin(req, res) {
   try {
     await authenticateAD(username, password);
     const adGroups = await getUserGroups(username);
-
+    
     // Validação: Carrega permissões a partir dos grupos .env
     const permissions = {};
     Object.entries(MODULE_GROUPS).forEach(([module, groupName]) => {
@@ -153,9 +155,10 @@ async function controllerLogin(req, res) {
       );
     });
 
-    const token = jwt.sign({ username, permissions, adGroups }, JWT_SECRET, { expiresIn: '1m' });
-    res.json({ token, permissions }); // Você pode retornar só permissions se não quiser retornar todos os grupos
+    const token = jwt.sign({ username, permissions, adGroups }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    res.json({ token, permissions, environment }); // Você pode retornar só permissions se não quiser retornar todos os grupos
   } catch (err) {
+    console.log(error)
     res.status(401).json({ error: err });
   }
 }

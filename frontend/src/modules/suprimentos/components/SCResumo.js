@@ -52,7 +52,7 @@ export default function SCResumo({ info }) {
             Solicitante
           </Typography>
           <Typography variant="h6">
-            {info.solicitatnte}
+            {info.solicitante}
           </Typography>
         </Grid>
         

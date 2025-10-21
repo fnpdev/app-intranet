@@ -3,57 +3,55 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Box, TextField, Button, Paper,
-  Typography, Tabs, Tab, CircularProgress, Alert, Badge
+  Tabs, Tab, CircularProgress, Alert, Badge
 } from '@mui/material';
-import SCResumo from '../components/SCResumo';
+import SAResumo from '../components/SAResumo';
 import TabelaAtributos from '../components/TabelaAtributos';
 import { useAuth } from '../../../context/AuthContext';
 
-const API_URL = process.env.REACT_APP_API_URL + '/api/suprimento/consulta-sc/';
+
+const API_URL = process.env.REACT_APP_API_URL + '/api/suprimento/consulta-sa/';
 const abas = [
-  { label: 'Itens da SC', key: 'itens' },
-  { label: 'Aprovação', key: 'aprovacao' }
+  { label: 'Itens da SA', key: 'itens' }
 ];
 
-export default function ConsultaSCPage() {
+export default function ConsultaSAPage() {
   const { token } = useAuth();
-  const { sc } = useParams();
+  const { sa } = useParams();
   const navigate = useNavigate();
   const fetchedOnMount = useRef(false);
-  
-  const [query, setQuery] = useState(sc || '');
+
+  const [query, setQuery] = useState(sa || '');
   const [dados, setDados] = useState(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
-    if (sc && !fetchedOnMount.current) {
-      buscarSC(sc);
+    if (sa && !fetchedOnMount.current) {
+      buscarSA(sa);
       fetchedOnMount.current = true;
     }
-  }, [sc]);
+  }, [sa]);
 
   useEffect(() => {
-    setQuery(sc || '');
-    if (!sc) {
+    setQuery(sa || '');
+    if (!sa) {
       setDados(null);
       setErro('');
       fetchedOnMount.current = false;
     }
-  }, [sc]);
+  }, [sa]);
 
-  const buscarSC = async (valor) => {
+  const buscarSA = async (valor) => {
     if (!valor) {
-      setErro('Informe um número de SC');
+      setErro('Informe o número da SA');
       setDados(null);
       return;
     }
-
     setLoading(true);
     setErro('');
     setDados(null);
-
     try {
       const resp = await axios.get(`${API_URL}${valor}`, {
         headers: {
@@ -61,33 +59,31 @@ export default function ConsultaSCPage() {
         }
       });
 
-      if (resp.data && resp.data.success) {
+      if (resp.data && resp.data.success){
         setDados(resp.data);
       } else {
-        setErro('SC não encontrada.');
+        setErro('SA não encontrada.');
       }
-
+ 
     } catch (err) {
-      setErro('Erro ao buscar SC.');
+      setErro('Erro ao buscar SA.');
     }
     setLoading(false);
   };
 
   const buscarOuNavegar = () => {
     if (!query) {
-      setErro('Informe um número de SC');
+      setErro('Informe o número da SA');
       setDados(null);
       return;
     }
-
-    if (query !== sc) {
-      navigate(`/suprimentos/consulta-sc/${query}`);
+    if (query !== sa) {
+      navigate(`/suprimentos/consulta-sa/${query}`);
     } else {
-      buscarSC(query);
+      buscarSA(query);
     }
   };
 
-  // Função para quantidade de itens em cada aba
   const getBadgeCount = (key) => {
     return dados && Array.isArray(dados[key]) ? dados[key].length : 0;
   };
@@ -102,7 +98,7 @@ export default function ConsultaSCPage() {
         }}
       >
         <TextField
-          label="Buscar por número da SC"
+          label="Buscar por número da SA"
           variant="outlined"
           size="small"
           value={query}
@@ -130,8 +126,8 @@ export default function ConsultaSCPage() {
 
       {dados && (
         <>
-          <SCResumo info={dados.info} />
-          
+          <SAResumo info={dados.info} />
+
           <Tabs
             value={tab}
             onChange={(e, v) => setTab(v)}
@@ -187,17 +183,7 @@ export default function ConsultaSCPage() {
               boxShadow: '0 2px 9px -8px #444'
             }}
           >
-            <Box
-              sx={{
-                width: '100%',
-                overflowX: 'auto',
-                '& table': { minWidth: 600 },
-                '&::-webkit-scrollbar': { height: 8 },
-                '&::-webkit-scrollbar-thumb': { bgcolor: '#e0e0e0' }
-              }}
-            >
-              <TabelaAtributos dados={dados[abas[tab].key]} />
-            </Box>
+            <TabelaAtributos dados={dados[abas[tab].key]} />
           </Paper>
         </>
       )}

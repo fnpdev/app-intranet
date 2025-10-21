@@ -7,12 +7,9 @@ import {
 } from '@mui/material';
 import ProdutoResumo from '../components/ProdutoResumo';
 import TabelaAtributos from '../components/TabelaAtributos';
+import { useAuth } from '../../../context/AuthContext';
 
-const API_URL = process.env.REACT_APP_N8N_URL + '/get_produto';
-const BASIC_USER = process.env.REACT_APP_BASIC_USER;
-const BASIC_PASS = process.env.REACT_APP_BASIC_PASS;
-const basicAuth = 'Basic ' + btoa(`${BASIC_USER}:${BASIC_PASS}`);
-
+const API_URL = process.env.REACT_APP_API_URL + '/api/suprimento/consulta-produto/';
 const abas = [
   { label: 'Estoques', key: 'estoque' },
   { label: 'Endereços', key: 'endereco' },
@@ -20,9 +17,12 @@ const abas = [
   { label: 'SA', key: 'sa' },
   { label: 'SC', key: 'sc' },
   { label: 'PC', key: 'pc' },
+  { label: 'Kardex', key: 'kardex' },
 ];
 
 export default function ConsultaProduto() {
+  
+  const { token } = useAuth();
   const { produto } = useParams();
   const navigate = useNavigate();
   const fetchedOnMount = useRef(false);
@@ -58,14 +58,16 @@ export default function ConsultaProduto() {
     setErro('');
     setDados(null);
     try {
-      const resp = await axios.get(API_URL, {
+      const resp = await axios.get(`${API_URL}${valor}`, {
         headers: {
-          produto: valor,
-          Authorization: basicAuth,
+          Authorization: `Bearer ${token}`, // ✅ Bearer token no header
         }
       });
-      if (resp.data && resp.data.length > 0) setDados(resp.data[0]);
-      else setErro('Produto não encontrado.');
+      if (resp.data && resp.data.success) {
+        setDados(resp.data);
+      } else {
+        setErro('Produto não encontrado.');
+      }
     } catch (err) {
       setErro('Erro ao buscar produto.');
     }
@@ -88,6 +90,16 @@ export default function ConsultaProduto() {
   // Função para quantidade de itens em cada aba
   const getBadgeCount = key =>
     dados && Array.isArray(dados[key]) ? dados[key].length : 0;
+
+  // 🔍 Filtra abas conforme tipo do produto
+  const abasFiltradas = dados?.info?.tipo_produto === 'SV'
+    ? abas.filter(a => !['sa', 'estoque', 'endereco', 'lote'].includes(a.key))
+    : abas;
+
+  // 🔒 Garante que o índice da aba ativa seja válido
+  useEffect(() => {
+    if (tab >= abasFiltradas.length) setTab(0);
+  }, [abasFiltradas, tab]);
 
   return (
     <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4 }}>
@@ -127,7 +139,7 @@ export default function ConsultaProduto() {
 
       {dados && (
         <>
-          <ProdutoResumo info={dados.info_produto} />
+          <ProdutoResumo info={dados.info} />
 
           <Tabs
             value={tab}
@@ -140,16 +152,15 @@ export default function ConsultaProduto() {
               bgcolor: '#f4f8fb'
             }}
           >
-            {abas.map((aba, idx) => (
+            {abasFiltradas.map((aba, idx) => (
               <Tab
                 key={aba.key}
                 sx={{
-                  minWidth: 150,       // aumente conforme necessário
-                  px: 4,               // padding horizontal maior
+                  minWidth: 150,
+                  px: 4,
                   maxWidth: 300,
                   fontWeight: 500,
                   fontSize: '1.05rem',
-                  // Deixe o texto em uma linha só:
                   textTransform: 'none'
                 }}
                 label={
@@ -194,7 +205,7 @@ export default function ConsultaProduto() {
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#e0e0e0' }
               }}
             >
-              <TabelaAtributos dados={dados[abas[tab].key]} />
+              <TabelaAtributos dados={dados[abasFiltradas[tab].key]} />
             </Box>
           </Paper>
         </>
