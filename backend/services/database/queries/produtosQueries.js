@@ -11,7 +11,7 @@ const produtosQueries = {
         trim(SB1.B1_DESC)		as descricao,       
         trim(SB1.B1_COD)		as codigo_barras,
         SB1.B1_LOCALIZ			as controla_endereco,
-        SB1.B1_TIPO				  as tipo_PRODUTO,
+        SB1.B1_TIPO				  as tipo_produto,
         SB1.B1_RASTRO			  as controla_lote
      FROM SB1010 SB1
     WHERE SB1.D_E_L_E_T_ <> '*'   
