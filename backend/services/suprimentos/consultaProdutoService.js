@@ -223,7 +223,7 @@ class consultaprodutoervice {
 
 
     let result = {
-      success: true,
+      success: produto.rowsAffected > 0 ? true : false,
       info: produto.success ? produto.data[0] : {},
       estoque: estoque.success ? estoque.data : {},
       endereco: endereco.data ? endereco.data : {},

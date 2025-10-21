@@ -51,25 +51,25 @@ class consultaSCService {
       return { info, itens };
     } 
 
-
+    let codFilial = '01';
     let sc_itens = await this.db.executeQuery(
       this.queries.sc.buscarPorCodigo,
-      { codSC }
+      { codFilial, codSC }
     );
 
     let aprovacao = await this.db.executeQuery(
       this.queries.sc.buscarAprovadorPorSC,
-      { codSC }
+      { codFilial, codSC }
     );
 
 
     let sc = separarAtributos(sc_itens.data);
 
     let result = {
-      success: true,
+      success: sc_itens.rowsAffected > 0 ? true : false,
       info: sc.info,
       itens: sc.itens,
-      aprovacao: aprovacao.data ? aprovacao.data : {},
+      aprovacao: aprovacao.data ? aprovacao.data : {}
     }
 
 

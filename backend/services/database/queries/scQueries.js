@@ -77,7 +77,7 @@ const scQueries = {
         SCR.CR_EMISSAO	                AS data_emissao,
         SAL.AL_NIVEL                    AS nivel_aprovador,    
         CASE
-              WHEN SCR.CR_STATUS = @codFilial THEN 'Aguardando nivel anterior'
+              WHEN SCR.CR_STATUS = '01' THEN 'Aguardando nivel anterior'
               WHEN SCR.CR_STATUS = '02' THEN 'Pendente Aprovação'
               WHEN SCR.CR_STATUS = '03' THEN 'Liberado'
               WHEN SCR.CR_STATUS = '04' THEN 'Bloqueado'
@@ -97,6 +97,7 @@ const scQueries = {
      AND SAK.AK_COD = SAL.AL_APROV
    WHERE SCR.D_E_L_E_T_ <> '*' 
      AND CR_TIPO = 'SC' 
+     AND left(CR_FILIAL, 2) = @codFilial 
      AND CR_NUM = @codSC
      `
 };

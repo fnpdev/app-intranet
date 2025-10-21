@@ -6,6 +6,8 @@ import {
 import { OpenInNew } from '@mui/icons-material';
 import { materialPalette } from '../../../utils/materialPalette';
 
+const REACT_APP_LINK = process.env.REACT_APP_LINK;
+
 export default function TabelaAtributos({ dados }) {
   if (!dados || dados.length === 0) return (
     <Typography sx={{ mt: 2, ml: 2, color: '#999' }}>
@@ -25,7 +27,7 @@ export default function TabelaAtributos({ dados }) {
   // Função para abrir link em nova aba
   const handleLinkClick = (url) => {
     if (url && url.toString().trim()) {
-      const finalUrl = url.startsWith('http') ? url : `http://localhost:3000/suprimentos/${url}`;
+      const finalUrl = url.startsWith('http') ? url : `${REACT_APP_LINK}/suprimentos/${url}`;
       window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
   };

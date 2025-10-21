@@ -58,7 +58,7 @@ class consultaSAService {
     let sa = separarAtributos(sa_itens.data);
 
     let result = {
-      success: true,
+      success: sa_itens.rowsAffected > 0 ? true : false,
       info: sa.info,
       itens: sa.itens
     }
