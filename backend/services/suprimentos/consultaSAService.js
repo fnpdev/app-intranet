@@ -48,10 +48,10 @@ class consultaSAService {
       return { info, itens };
     } 
 
-
+    let codFilial = '01'
     let sa_itens = await this.db.executeQuery(
       this.queries.sa.buscarPorCodigo,
-      { codSA }
+      { codSA, codFilial }
     );
 
     
