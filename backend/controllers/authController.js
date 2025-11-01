@@ -4,7 +4,7 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const ldap = require('ldapjs');
 const { logEvent } = require('../services/logService');
-
+const { getUserVariablesEffective } = require('../services/userVariablesService');
 
 // Constants from env
 const LDAP_URL = process.env.LDAP_URL;
@@ -115,15 +115,12 @@ async function authenticateAD(username, password) {
 
 // ------------ CONTROLLER PRINCIPAL -------------
 async function controllerLogin(req, res) {
-  // Retorno estático em desenvolvimento
-
-    await logEvent({
-      username: req.body.username,
-      ip_address: req.hostname,
-      success: true,
-      message: 'tentativa de login'
-    });
-
+  await logEvent({
+    username: req.body.username,
+    ip_address: req.hostname,
+    success: true,
+    message: 'tentativa de login'
+  });
 
   if (environment === 'development') {
     return res.json({
@@ -134,33 +131,64 @@ async function controllerLogin(req, res) {
         rh: true
       },
       environment
-      
     });
   }
 
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ error: 'Missing credentials' });
+    return res.status(400).json({ success: false, error: 'Missing credentials' });
   }
+
   try {
     await authenticateAD(username, password);
     const adGroups = await getUserGroups(username);
-    
-    // Validação: Carrega permissões a partir dos grupos .env
+
     const permissions = {};
     Object.entries(MODULE_GROUPS).forEach(([module, groupName]) => {
-      // Verifica se o usuário é membro do grupo do módulo
       permissions[module] = adGroups.some(groupDn =>
         groupDn.includes(groupName)
       );
     });
 
     const token = jwt.sign({ username, permissions, adGroups }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    res.json({ token, permissions, environment }); // Você pode retornar só permissions se não quiser retornar todos os grupos
+
+    res.json({ success: true, token, permissions, environment });
   } catch (err) {
-    console.log(error)
-    res.status(401).json({ error: err });
+    console.error('Erro durante login:', err.message || err);
+    res.status(401).json({ success: false, error: err.message || err });
   }
 }
 
-module.exports = { controllerLogin };
+async function controllerMe(req, res) {
+  try {
+    const username = req.user.username;
+
+    // Busca variáveis do usuário (com fallback nos defaults)
+    const variables = await getUserVariablesEffective(username);
+
+    // Cria um objeto de acesso rápido
+    const variablesObject = {};
+    variables.forEach(v => {
+      variablesObject[v.key] = {
+        value: v.value,
+        description: v.description
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        username,
+        permissions: req.user.permissions,
+        adGroups: req.user.adGroups,
+        variables,
+        variablesObject, // ✅ retorno adicional para facilitar frontend
+      }
+    });
+  } catch (err) {
+    console.error('Erro em /api/me:', err);
+    return res.status(500).json({ success: false, error: 'Erro ao buscar dados do usuário' });
+  }
+}
+
+module.exports = { controllerLogin, controllerMe };

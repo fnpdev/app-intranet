@@ -6,10 +6,12 @@ import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 
 export default function Sidebar({ handleClose }) {
-  const { permissions } = useAuth();
+  const { user } = useAuth();
+  const permissions = user?.permissions || {};
   const [open, setOpen] = React.useState({});
+
   const ativos = Array.isArray(modules)
-    ? modules.filter(m => permissions && permissions[m.enabledField])
+    ? modules.filter(m => m.enabledField === null || permissions[m.enabledField])
     : [];
 
   const handleToggle = key => {

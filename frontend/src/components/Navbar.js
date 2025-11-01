@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
-  AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem
+  AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Tooltip
 } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
+import TuneIcon from '@mui/icons-material/Tune';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import modules from '../config/modules.json';
@@ -13,16 +14,19 @@ export default function Navbar({ onMenuClick, showMenuIcon }) {
   const [menuKey, setMenuKey] = useState(null);
 
   const navigate = useNavigate();
-  const { token, permissions, logout } = useAuth();
+  const { token, user, logout, setShowVarDialog } = useAuth();
+
+  const permissions = user?.permissions || {};
 
   const availableModules = Array.isArray(modules)
-    ? modules.filter(mod => permissions && permissions[mod.enabledField])
+    ? modules.filter(mod => mod.enabledField === null || permissions[mod.enabledField])
     : [];
 
   const handleMenuOpen = (event, key) => {
     setAnchorEl(event.currentTarget);
     setMenuKey(key);
   };
+
   const handleMenuClose = () => {
     setAnchorEl(null);
     setMenuKey(null);
@@ -38,6 +42,10 @@ export default function Navbar({ onMenuClick, showMenuIcon }) {
     navigate('/login');
   };
 
+  const handleOpenVarDialog = () => {
+    setShowVarDialog(true);
+  };
+
   if (!Array.isArray(modules)) return <div>Menu não carregado!</div>;
 
   return (
@@ -48,10 +56,12 @@ export default function Navbar({ onMenuClick, showMenuIcon }) {
             <MenuIcon />
           </IconButton>
         )}
+
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Intranet
         </Typography>
-        {/* Menu suspenso para cada módulo */}
+
+        {/* 🔐 Menus dos módulos disponíveis */}
         {availableModules.map((mod) => (
           <React.Fragment key={mod.key}>
             <Button
@@ -79,6 +89,17 @@ export default function Navbar({ onMenuClick, showMenuIcon }) {
             </Menu>
           </React.Fragment>
         ))}
+
+        {/* ⚙️ Botão para redefinir variáveis */}
+        {token && (
+          <Tooltip title="Alterar preferências (Filial, Competência...)">
+            <IconButton color="inherit" sx={{ mr: 1 }} onClick={handleOpenVarDialog}>
+              <TuneIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* 🚪 Logout */}
         {token && (
           <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
             Logout

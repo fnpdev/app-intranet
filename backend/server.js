@@ -3,11 +3,12 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const { verifyToken } = require('./middleware/authMiddleware');
 
 // Middlewares
 app.use(express.json());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://192.168.50.14:3000'],
+  origin: ['127.0.0.1','http://localhost:3000', 'http://192.168.50.14:3000', 'http://intranet.novapiratininga.com:3000'],
   credentials: true,
 }));
 
@@ -16,8 +17,14 @@ app.use(cors({
 // Rotas de autenticação (existentes)
 app.use('/api', require('./routes/authRoutes'));
 
-// Rotas ERP (novas)
-app.use('/api/suprimento/', require('./routes/suprimentosRoutes'));
+// 🔒 Rotas protegidas — requer token válido
+app.use('/api/me', verifyToken, require('./routes/meRoute'));
+app.use('/api/global-vars', verifyToken, require('./routes/globalVariablesRoutes'));
+app.use('/api/user-vars', verifyToken, require('./routes/userVariablesRoutes'));
+app.use('/api/variable-definitions', verifyToken, require('./routes/variableDefinitionsRoutes'));
+
+// 🔒 Rotas ERP (novas)
+app.use('/api/suprimento', verifyToken, require('./routes/suprimentosRoutes'));
 
 // ==================== ERROR HANDLER ====================
 
@@ -26,10 +33,11 @@ app.use('/api/suprimento/', require('./routes/suprimentosRoutes'));
 
 // Handler para rotas não encontradas
 app.use((req, res) => {
+  console.log(req)
   res.status(404).json({
     success: false,
     message: 'Rota não encontrada',
-    path: req.path,
+    path: req.path
   });
 });
 
@@ -68,7 +76,7 @@ const gracefulShutdown = async (signal) => {
     
     try {
       // Fecha o pool de conexões do banco de dados
-      const { closePool } = require('./config/database');
+      const { closePool } = require('./config/db_postgres');
       await closePool();
       console.log('✅ Conexões encerradas com sucesso');
       process.exit(0);
