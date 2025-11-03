@@ -1,24 +1,46 @@
+// src/config/routeComponents.js
 import Home from '../pages/Home';
 import Login from '../pages/Login';
 import NotAuthorizedPage from '../pages/NotAuthorizedPage';
 import NotFound from '../pages/NotFound';
-import IntranetDashboard from '../modules/intranet/pages/DashboardPage';
-import SuprimentosConsultaProdutoPage from '../modules/suprimentos/pages/ConsultaProdutoPage';
-import SuprimentosConsultaSCPage from '../modules/suprimentos/pages/ConsultaSCPage';
-import SuprimentosConsultaSAPage from '../modules/suprimentos/pages/ConsultaSAPage';
-import RHPage from '../modules/rh/pages/SolicitacoesPage';
+import DynamicConsultaPage from '../modules/core/pages/DynamicConsultaPage'; // ✅ novo caminho base
+import DashboardPage  from '../modules/intranet/pages/DashboardPage';
+/**
+ * 🔹 Função que carrega componentes dinâmicos a partir do nome vindo do backend
+ */
+export const loadDynamicComponent = (name) => {
+  try {
+    const components = {
+      Home,
+      Login,
+      NotAuthorizedPage,
+      NotFound,
+      DynamicConsultaPage, // ✅ inclui componente genérico dinâmico
+      DashboardPage,
+    };
 
-// Map path string 100% igual ao JSON
-const routeComponents = {
-  "/": Home,
-  "/login": Login,
-  "/intranet/dashboard": IntranetDashboard,
-  "/suprimentos/consulta-produto/:produto?": SuprimentosConsultaProdutoPage,
-  "/suprimentos/consulta-sc/:sc?": SuprimentosConsultaSCPage,
-  "/suprimentos/consulta-sa/:sa?": SuprimentosConsultaSAPage,
-  "/rh/solicitacoes": RHPage,
-  "/not-authorized": NotAuthorizedPage,
-  "*": NotFound
+    // Normaliza o nome (aceita variações vindas do banco)
+    const key = Object.keys(components).find(
+      (k) => k.toLowerCase() === (name || '').toLowerCase()
+    );
+
+    return components[key] || NotFound;
+  } catch (err) {
+    console.error(`❌ Erro ao carregar componente dinâmico: ${name}`, err);
+    return NotFound;
+  }
 };
 
-export default routeComponents;
+/**
+ * 🔹 Rotas fixas (públicas, login, 404, etc.)
+ */
+export const staticRoutes = {
+  publicNoLayout: [
+    { path: '/login', element: Login },
+  ],
+  publicWithLayout: [
+    { path: '/', element: Home },
+  ],
+  NotAuthorized: NotAuthorizedPage,
+  NotFound: NotFound,
+};

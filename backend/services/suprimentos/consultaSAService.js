@@ -1,5 +1,5 @@
 // services/ERPService.js
-const DatabaseService = require('../database/DBSQLServerService');
+const DatabaseService = require('../DBSQLServerService');
 const queries = require('../database/queries');
 
 class consultaSAService {

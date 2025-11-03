@@ -3,12 +3,12 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
-const { verifyToken } = require('./middleware/authMiddleware');
+const { verifyToken } = require('./middlewares/authMiddleware');
 
 // Middlewares
 app.use(express.json());
 app.use(cors({
-  origin: ['127.0.0.1','http://localhost:3000', 'http://192.168.50.14:3000', 'http://intranet.novapiratininga.com:3000'],
+  origin: ['127.0.0.1','http://localhost:3000', 'http://192.168.50.14:3000', 'http://intranet-dev.novapiratininga.com:3000'],
   credentials: true,
 }));
 
@@ -22,6 +22,11 @@ app.use('/api/me', verifyToken, require('./routes/meRoute'));
 app.use('/api/global-vars', verifyToken, require('./routes/globalVariablesRoutes'));
 app.use('/api/user-vars', verifyToken, require('./routes/userVariablesRoutes'));
 app.use('/api/variable-definitions', verifyToken, require('./routes/variableDefinitionsRoutes'));
+
+
+app.use('/api/modules', verifyToken, require('./routes/moduleRoutes'));
+app.use('/api/queries', verifyToken, require('./routes/queriesRoutes'));
+app.use('/api/pages', verifyToken, require('./routes/pagesRoutes'));
 
 // 🔒 Rotas ERP (novas)
 app.use('/api/suprimento', verifyToken, require('./routes/suprimentosRoutes'));

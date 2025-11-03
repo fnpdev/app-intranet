@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middlewares/authMiddleware');
 const { getAllGlobalVariables, getVariable } = require('../services/globalVariablesService');
 
 // 🔐 Todas as rotas exigem token válido

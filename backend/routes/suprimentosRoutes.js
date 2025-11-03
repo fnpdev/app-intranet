@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const suprimentosController = require('../controllers/suprimentosController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middlewares/authMiddleware');
 
 // Todas as rotas requerem autenticação
 router.use(verifyToken);

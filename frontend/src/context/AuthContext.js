@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
@@ -10,10 +10,10 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
-  const [variables, setVariables] = useState([]);       // array das variáveis do usuário
-  const [variableMap, setVariableMap] = useState({});   // objeto { key: { value, description } }
-  const [definitions, setDefinitions] = useState([]);   // 🔹 catálogo de variáveis globais
-  const [globalVars, setGlobalVars] = useState([]);     // 🔹 valores padrão do sistema
+  const [variables, setVariables] = useState([]);        // Variáveis do usuário
+  const [definitions, setDefinitions] = useState([]);    // Definições globais
+  const [globalVars, setGlobalVars] = useState([]);      // Valores e opções
+  const [variableMap, setVariableMap] = useState({});    // key → value
   const [loading, setLoading] = useState(true);
 
   const [showVarDialog, setShowVarDialog] = useState(false);
@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
 
   const API_URL = process.env.REACT_APP_API_URL;
 
-  // 🧭 Carrega token salvo e busca dados do usuário
+  // 🧭 Carrega token salvo e busca informações
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     if (savedToken) {
@@ -33,14 +33,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // 🔍 Busca informações do usuário e variáveis
+  // 🔍 Carrega todas as informações do usuário e sistema
   const fetchUserInfo = async (jwtToken = token) => {
     try {
-      // 1️⃣ /api/me → usuário e variáveis atuais
+      // 1️⃣ Dados do usuário
       const resp = await axios.get(`${API_URL}/api/me`, {
         headers: { Authorization: `Bearer ${jwtToken}` },
       });
-
       if (!resp.data?.success) throw new Error('Resposta inválida de /api/me');
 
       const data = resp.data.data;
@@ -49,33 +48,24 @@ export function AuthProvider({ children }) {
         permissions: data.permissions,
         adGroups: data.adGroups,
       });
-
       setVariables(data.variables || []);
-      setVariableMap({ ...data.variablesObject }); // ✅ reatividade garantida
+      setVariableMap(data.variablesObject || {});
 
-      // 2️⃣ /api/variable-definitions → catálogo de variáveis
+      // 2️⃣ Definições de variáveis
       const defsResp = await axios.get(`${API_URL}/api/variable-definitions`, {
         headers: { Authorization: `Bearer ${jwtToken}` },
       });
       setDefinitions(defsResp.data.data || []);
 
-      // 3️⃣ /api/global-vars → valores globais do sistema
-      // 🔸 agora o backend já devolve options como JSON
-      const globalResp = await axios.get(`${API_URL}/api/global-vars`, {
+      // 3️⃣ Variáveis globais com opções
+      const globalsResp = await axios.get(`${API_URL}/api/global-vars`, {
         headers: { Authorization: `Bearer ${jwtToken}` },
       });
-      setGlobalVars(globalResp.data.data || []); // ✅ não precisa mais de parse
+      setGlobalVars(globalsResp.data.data || []);
 
-      // 4️⃣ Define estado inicial para o popup
-      const initialVars = {};
-      (data.variables || []).forEach(v => {
-        initialVars[v.key] = v.value;
-      });
-      setTempVars(initialVars);
-
-      // 5️⃣ Verifica se há variáveis faltando
-      const userKeys = new Set(Object.keys(initialVars));
-      const missingDefs = defsResp.data.data.filter(d => !userKeys.has(d.key) && d.active);
+      // 4️⃣ Verifica se faltam variáveis obrigatórias
+      const userKeys = new Set((data.variables || []).map(v => v.key));
+      const missingDefs = (defsResp.data.data || []).filter(d => !userKeys.has(d.key) && d.active);
       if (missingDefs.length > 0) {
         console.log('⚙️ Variáveis obrigatórias faltando — abrindo popup...');
         setShowVarDialog(true);
@@ -88,7 +78,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-
   // 🧩 Login
   const login = async ({ token }) => {
     localStorage.setItem('token', token);
@@ -96,15 +85,22 @@ export function AuthProvider({ children }) {
     await fetchUserInfo(token);
   };
 
-  // 🚪 Logout
-  const logout = () => {
+// 🚪 Logout: limpa tudo e redireciona
+const logout = () => {
+  try {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
     setVariables([]);
     setVariableMap({});
     setShowVarDialog(false);
-  };
+
+    // Redireciona para o login
+    window.location.href = '/login';
+  } catch (err) {
+    console.error('Erro ao executar logout:', err);
+  }
+};
 
   // 💾 Salva variáveis do usuário
   const saveUserVariables = async (localVars) => {
@@ -116,8 +112,6 @@ export function AuthProvider({ children }) {
         })
       );
       await Promise.all(updates);
-
-      // 🔁 Atualiza o contexto com novos dados
       await fetchUserInfo();
       setShowVarDialog(false);
     } catch (err) {
@@ -127,17 +121,17 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // 🎨 Popup de definição de variáveis
+  // 🧱 Dialog de configuração
   const VariableDialog = () => {
     const [localVars, setLocalVars] = useState(tempVars);
     const [dirty, setDirty] = useState(false);
-    const [confirmClose, setConfirmClose] = useState(false);
 
     useEffect(() => {
-      setLocalVars(tempVars);
+      const map = {};
+      (variables || []).forEach(v => (map[v.key] = v.value));
+      setLocalVars(map);
       setDirty(false);
-      setConfirmClose(false);
-    }, [showVarDialog, tempVars]);
+    }, [showVarDialog]);
 
     const handleChange = (key, value) => {
       setLocalVars(prev => {
@@ -152,62 +146,49 @@ export function AuthProvider({ children }) {
       setDirty(false);
     };
 
-    const handleCancel = () => {
-      if (dirty) setConfirmClose(true);
-      else setShowVarDialog(false);
-    };
-
     return (
-      <>
-        <Dialog open={showVarDialog} fullWidth maxWidth="sm">
-          <DialogTitle>Definir Preferências do Usuário</DialogTitle>
-          <DialogContent dividers>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              Escolha as opções padrão que serão utilizadas nas telas do sistema.
-            </Typography>
-
-            {definitions.filter(d => d.active).map(def => {
-              const global = globalVars.find(g => g.key === def.key);
-              const options = global?.options || [];
-              return (
-                <Box key={def.key} sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    {def.description}
-                  </Typography>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={localVars[def.key] || ''}
-                      onChange={e => handleChange(def.key, e.target.value)}
-                    >
-                      {options.map(opt => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.description || opt.value}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-              );
-            })}
-          </DialogContent>
-
-          <DialogActions>
-            <Button onClick={logout} color="error">Sair</Button>
-            <Button onClick={handleCancel} color="inherit">Cancelar</Button>
-            <Button
-              onClick={handleSave}
-              variant="contained"
-              disabled={!dirty || savingVars}
-            >
-              {savingVars ? 'Salvando...' : 'Salvar e Continuar'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </>
+      <Dialog open={showVarDialog} fullWidth maxWidth="sm">
+        <DialogTitle>Definir Preferências do Usuário</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Escolha as opções padrão que serão utilizadas nas telas do sistema.
+          </Typography>
+          {definitions.filter(d => d.active).map(def => {
+            const global = globalVars.find(g => g.key === def.key);
+            const options = global?.options || [];
+            return (
+              <Box key={def.key} sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  {def.description}
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={localVars[def.key] || ''}
+                    onChange={e => handleChange(def.key, e.target.value)}
+                  >
+                    {options.map(opt => (
+                      <MenuItem key={opt.value} value={opt.value}>
+                        {opt.description || opt.value}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            );
+          })}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={logout} color="error">Sair</Button>
+          <Button onClick={() => setShowVarDialog(false)} color="inherit">Cancelar</Button>
+          <Button onClick={handleSave} variant="contained" disabled={!dirty || savingVars}>
+            {savingVars ? 'Salvando...' : 'Salvar e Continuar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     );
   };
 
-  if (loading)
+  if (loading) {
     return (
       <Box sx={{ textAlign: 'center', mt: 10 }}>
         <CircularProgress />
@@ -216,6 +197,7 @@ export function AuthProvider({ children }) {
         </Typography>
       </Box>
     );
+  }
 
   return (
     <AuthContext.Provider
@@ -225,10 +207,11 @@ export function AuthProvider({ children }) {
         variables,
         variableMap,
         definitions,
+        globalVars,
         login,
         logout,
-        setShowVarDialog,
         refetchUser: fetchUserInfo,
+        setShowVarDialog
       }}
     >
       {children}

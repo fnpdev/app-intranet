@@ -6,7 +6,7 @@ const {
   updateDefinition,
   deactivateDefinition
 } = require('../services/variableDefinitionsService');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middlewares/authMiddleware');
 
 // ✅ Lista todas as variáveis definidas
 router.get('/', verifyToken, async (req, res) => {

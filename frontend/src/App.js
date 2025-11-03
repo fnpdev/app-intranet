@@ -1,67 +1,40 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import LayoutBase from './components/LayoutBase';
-import ModuleRoute from './routes/ModuleRoute';
+import LayoutBase from './layout/LayoutBase';
+import DynamicRoutes from './config/DynamicRoutes';
+import { staticRoutes } from './config/routeComponents';
+import axios from 'axios';
 
-import modules from './config/modules.json';
-import routeComponents from './config/routeComponents';
+const API_URL = process.env.REACT_APP_API_URL;
 
-// ===============================================
-// 🧩 Helper: extrai rotas de módulos habilitados
-// ===============================================
-function getRoutesByPermissions(permissions = {}) {
-  const rotas = [];
-  modules.forEach((mod) => {
-    const isEnabled =
-      mod.enabledField === null || // módulo público
-      permissions[mod.enabledField] === true; // módulo habilitado
-    
-    if (isEnabled) {
-      (mod.menus || []).forEach((menu) => {
-        rotas.push({
-          ...menu,
-          parentModule: mod.key,
-          enabledField: mod.enabledField,
-        });
-      });
-    }
-  });
-  return rotas;
-}
-
-// ===============================================
-// 🔐 TokenWatcher — Monitora expiração do JWT
-// ===============================================
+// ========================= TokenWatcher =========================
 function TokenWatcher({ children }) {
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!token) return;
-
+    
     try {
       const { exp } = jwtDecode(token);
       const agora = Date.now();
       const tempoRestante = exp * 1000 - agora;
 
       if (tempoRestante <= 0) {
-        console.warn('⏰ Token expirado — encerrando sessão');
         logout();
         navigate('/login');
         return;
       }
 
       const timer = setTimeout(() => {
-        console.warn('⏰ Token expirou — logout automático');
         logout();
         navigate('/login');
       }, tempoRestante);
 
       return () => clearTimeout(timer);
     } catch {
-      console.error('❌ Token inválido — forçando logout');
       logout();
       navigate('/login');
     }
@@ -70,69 +43,72 @@ function TokenWatcher({ children }) {
   return children;
 }
 
-// ===============================================
-// 🔧 Componente principal das rotas
-// ===============================================
+// ========================= AppRoutes =========================
 function AppRoutes() {
-  const { user } = useAuth(); // agora temos permissions do backend
-  const permissions = user?.permissions || {};
+  const { token } = useAuth();
+  const [modules, setModules] = useState([]);
+  const [loadingModules, setLoadingModules] = useState(true);
 
-  // 🔍 filtra rotas conforme permissões
-  const allRoutes = getRoutesByPermissions(permissions);
-  const NotAuthorized = routeComponents['/not-authorized'];
-  const NotFound = routeComponents['*'];
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!token) {
+        setModules([]);
+        setLoadingModules(false);
+        return;
+      }
+      
+      try {
+        const resp = await axios.get(`${API_URL}/api/modules`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (resp.data?.success) setModules(resp.data.data || []);
+      } catch (err) {
+        console.error('Erro ao buscar módulos:', err);
+      } finally {
+        setLoadingModules(false);
+      }
+    };
 
-  const publicNoLayout = allRoutes.filter((r) => r.public && !r.withLayout);
-  const publicWithLayout = allRoutes.filter((r) => r.public && r.withLayout);
-  const privateRoutes = allRoutes.filter((r) => !r.public);
+    fetchModules();
+  }, [token]);
+
+  if (loadingModules) {
+    return <div style={{ textAlign: 'center', padding: 40 }}>🔄 Carregando módulos... </div>;
+  }
 
   return (
     <Routes>
-      {/* 🔓 Rotas públicas SEM layout */}
-      {publicNoLayout.map((r) => {
-        const Component = routeComponents[r.path];
-        return <Route key={r.path} path={r.path} element={<Component />} />;
-      })}
-
-      {/* 🔓 Rotas públicas COM LayoutBase */}
-      {publicWithLayout.length > 0 && (
+      {/* Rotas públicas SEM Layout */}
+      {staticRoutes?.publicNoLayout?.map((r) => (
+        
+        <Route key={r.path} path={r.path} element={<r.element />} />
+        
+      ))}
+      
+      {/* Rotas públicas COM Layout */}
+      {staticRoutes?.publicWithLayout?.length > 0 && (
         <Route element={<LayoutBase />}>
-          
-          {publicWithLayout.map((r) => {
-            const Component = routeComponents[r.path];
-            return <Route key={r.path} path={r.path} element={<Component />} />;
-          })}
+          {staticRoutes.publicWithLayout.map((r) => (
+            <Route key={r.path} path={r.path} element={<r.element />} />
+          ))}
         </Route>
       )}
 
-      {/* 🔒 Rotas privadas (só módulos com permissão) */}
-      <Route element={<LayoutBase />}>
-        {privateRoutes.map((r) => {
-          const Component = routeComponents[r.path];
-          return (
-            <Route
-              key={r.path}
-              path={r.path}
-              element={
-                <ModuleRoute module={r.enabledField}>
-                  <Component />
-                </ModuleRoute>
-              }
-            />
-          );
-        })}
-        <Route path="/not-authorized" element={<NotAuthorized />} />
-      </Route>
+      {/* Rotas privadas (dinâmicas do backend) */}
+      {token && (
+        <Route element={<LayoutBase />}>
+          {DynamicRoutes({ modules })} {/* ✅ chamando a função diretamente */}
+        </Route>
+      )}
 
-      {/* 🚫 404 padrão */}
-      <Route path="*" element={<NotFound />} />
+      {/* Acesso negado e 404 */}
+      <Route path="/not-authorized" element={<staticRoutes.NotAuthorized />} />
+      <Route path="*" element={<staticRoutes.NotFound />} />
     </Routes>
   );
 }
 
-// ===============================================
-// 🚀 App principal com Provider + Watcher
-// ===============================================
+// ========================= App principal =========================
 export default function App() {
   return (
     <AuthProvider>

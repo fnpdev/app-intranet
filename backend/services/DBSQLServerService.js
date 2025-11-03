@@ -1,5 +1,5 @@
 // services/database/DatabaseService.js
-const { sql, getPool } = require('../../config/db_sqlserver');
+const { sql, getPool } = require('../config/db_sqlserver');
 
 class DatabaseService {
   /**
