@@ -13,7 +13,7 @@ const db = require('../config/db_postgres');
  * GET /api/users/me
  * Retorna informações completas do usuário autenticado + variáveis + módulos acessíveis
  */
-router.get('/me', requireLevel(1), async (req, res) => {
+router.get('/me', requireLevel(1  ), async (req, res) => {
   try {
     if (!req.user || !req.user.username) {
       return res.status(401).json({
