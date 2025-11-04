@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Paper, Tabs, Tab, Badge, Box } from '@mui/material';
+import { Paper, Tabs, Tab, Badge, Box, Tooltip } from '@mui/material';
 import TabelaAtributos from '../../suprimentos/components/TabelaAtributos';
 
 /**
@@ -10,7 +10,7 @@ export default function DynamicAbas({ queries = [], data = {} }) {
 
   if (!queries || queries.length === 0) return null;
 
-  // apenas queries não principais
+  // 🔹 Apenas queries não principais
   const abas = queries.filter(q => !q.is_main);
 
   const handleChange = (e, value) => setTab(value);
@@ -20,45 +20,66 @@ export default function DynamicAbas({ queries = [], data = {} }) {
 
   return (
     <>
-      {/* Abas */}
+      {/* 🧭 Abas */}
       <Tabs
         value={tab}
         onChange={handleChange}
         variant="scrollable"
         allowScrollButtonsMobile
+        scrollButtons="auto"
         sx={{
           mb: 2,
-          '& .MuiTab-root': { fontWeight: 500, fontSize: '1rem' },
-          bgcolor: '#f4f8fb'
+          bgcolor: '#f4f8fb',
+          '& .MuiTab-root': {
+            fontWeight: 500,
+            fontSize: '0.95rem',
+            minWidth: 160,           // 🔸 largura mínima fixa
+            maxWidth: 180,           // 🔸 evita quebra em textos longos
+            textTransform: 'none',
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            mr: 1
+          },
+          '& .MuiTabs-indicator': {
+            height: 3,
+            borderRadius: 2
+          }
         }}
       >
-        {abas.map((aba) => (
-          <Tab
-            key={aba.key}
-            label={
-              <Badge
-                color="primary"
-                badgeContent={getBadgeCount(aba.key)}
-                invisible={getBadgeCount(aba.key) === 0}
-                max={99}
-                sx={{
-                  '& .MuiBadge-badge': {
-                    right: -20,
-                    top: 0,
-                    fontSize: '0.7em',
-                    minWidth: 18,
-                    height: 18
-                  }
-                }}
-              >
-                {aba.description || aba.key}
-              </Badge>
-            }
-          />
-        ))}
+        {abas.map((aba) => {
+          const count = getBadgeCount(aba.key);
+          const label = aba.description || aba.key;
+
+          return (
+            <Tooltip key={aba.key} title={label} arrow>
+              <Tab
+                label={
+                  <Badge
+                    color="primary"
+                    badgeContent={count}
+                    invisible={count === 0}
+                    max={99}
+                    sx={{
+                      '& .MuiBadge-badge': {
+                        right: -18,
+                        top: 0,
+                        fontSize: '0.7em',
+                        minWidth: 18,
+                        height: 18
+                      }
+                    }}
+                  >
+                    {label}
+                  </Badge>
+                }
+              />
+            </Tooltip>
+          );
+        })}
       </Tabs>
 
-      {/* Conteúdo da aba ativa */}
+      {/* 📊 Conteúdo da aba ativa */}
       <Paper
         sx={{
           p: 1,

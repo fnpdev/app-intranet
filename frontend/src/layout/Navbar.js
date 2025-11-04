@@ -19,13 +19,9 @@ export default function Navbar({ onMenuClick }) {
     <AppBar position="fixed" color="primary" elevation={2}>
       <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
         {/* Esquerda: menu e título */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={onMenuClick}
-            sx={{ mr: 1 }}
-          >
+         {token && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton color="inherit" edge="start" onClick={onMenuClick} sx={{ mr: 1 }}>
             <MenuIcon />
           </IconButton>
 
@@ -33,25 +29,16 @@ export default function Navbar({ onMenuClick }) {
             Intranet
           </Typography>
         </Box>
-
-        {/* Direita: variáveis, usuário e logout */}
+         )}
+        {/* Direita: variáveis + usuário + logout */}
         {token && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              minWidth: 0,
-            }}
-          >
-            {/* ⚙️ Definir variáveis globais */}
-            <Tooltip title="Definir variáveis globais">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+            <Tooltip title="Definir variáveis do usuário">
               <IconButton color="inherit" onClick={() => setShowVarDialog(true)}>
                 <SettingsIcon />
               </IconButton>
             </Tooltip>
 
-            {/* 👤 Nome do usuário */}
             <Typography
               variant="body2"
               sx={{
@@ -64,10 +51,9 @@ export default function Navbar({ onMenuClick }) {
               }}
               title={user?.username}
             >
-              👤 {user?.username?.split('@')[0] || 'Usuário'}
+              👤 {user?.name || user?.username?.split('@')[0] || 'Usuário'}
             </Typography>
 
-            {/* 🚪 Logout */}
             <Tooltip title="Sair do sistema">
               <IconButton
                 color="inherit"

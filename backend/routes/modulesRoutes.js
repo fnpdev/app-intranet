@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middlewares/authMiddleware');
-const { getAllModules } = require('../services/moduleService');
+const { modulesService } = require('../services/modulesService');
 
 /**
  * GET /api/modules
@@ -10,7 +10,7 @@ const { getAllModules } = require('../services/moduleService');
  */
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const modules = await getAllModules();
+    const modules = await modulesService.getAllModules();
     res.json({ success: true, data: modules });
   } catch (err) {
     console.error('❌ Erro ao buscar módulos:', err);

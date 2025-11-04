@@ -26,10 +26,10 @@ export default function Login() {
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
-      if (res.ok && data.token && data.permissions) {
+      if (res.ok && data.token && data.user.permissions) {
         login({
           token: data.token,
-          permissions: data.permissions
+          permissions: data.user.permissions
         });
         setMsg('');
         navigate('/');

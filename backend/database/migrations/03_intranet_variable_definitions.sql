@@ -1,4 +1,4 @@
-CREATE TABLE intranet_variable_definitions (
+CREATE TABLE intranet_variables (
   key VARCHAR(50) PRIMARY KEY,
   description VARCHAR(200) NOT NULL,
   active BOOLEAN DEFAULT TRUE,

@@ -9,7 +9,7 @@ async function getPageDefinition(pageKey) {
 
   // 1️⃣ Busca página
   const sqlPage = `
-    SELECT id, key, name, layout, active
+    SELECT id, key, name, layout, is_active
     FROM intranet_pages
     WHERE key = $1 AND active = TRUE
     LIMIT 1;
@@ -28,7 +28,7 @@ async function getPageDefinition(pageKey) {
       q.query,
       q.active,
       pq.order_index,
-      CASE WHEN pq.order_index = 0 THEN TRUE ELSE FALSE END AS is_main
+      pq.is_main
     FROM intranet_page_queries pq
     INNER JOIN intranet_queries q ON pq.query_id = q.id
     INNER JOIN intranet_pages p ON pq.page_id = p.id

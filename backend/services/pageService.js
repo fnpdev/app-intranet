@@ -2,10 +2,10 @@ const { query } = require('../config/db_postgres');
 
 async function getPages() {
   const sql = `
-    SELECT p.id, p.key, p.description, p.layout, p.active, m.key AS module
+    SELECT p.id, p.key, p.description, p.layout, p.is_active, m.key AS module
     FROM intranet_pages p
     INNER JOIN intranet_modules m ON m.id = p.module_id
-    WHERE p.active = TRUE
+    WHERE p.is_active = TRUE
     ORDER BY p.description;
   `;
   const result = await query(sql);
@@ -14,10 +14,10 @@ async function getPages() {
 
 async function getPageByKey(pageKey) {
   const sql = `
-    SELECT p.id, p.key, p.description, p.layout, p.active, m.key AS module
+    SELECT p.id, p.key, p.description, p.layout, p.is_active, m.key AS module
     FROM intranet_pages p
     INNER JOIN intranet_modules m ON m.id = p.module_id
-    WHERE p.key = $1 AND p.active = TRUE
+    WHERE p.key = $1 AND p.is_active = TRUE
     LIMIT 1;
   `;
   const result = await query(sql, [pageKey]);

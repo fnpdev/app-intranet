@@ -5,6 +5,7 @@ import NotAuthorizedPage from '../pages/NotAuthorizedPage';
 import NotFound from '../pages/NotFound';
 import DynamicConsultaPage from '../modules/core/pages/DynamicConsultaPage'; // ✅ novo caminho base
 import DashboardPage  from '../modules/intranet/pages/DashboardPage';
+import UsersPage from '../modules/admin/pages/UsersPage'
 /**
  * 🔹 Função que carrega componentes dinâmicos a partir do nome vindo do backend
  */
@@ -17,6 +18,7 @@ export const loadDynamicComponent = (name) => {
       NotFound,
       DynamicConsultaPage, // ✅ inclui componente genérico dinâmico
       DashboardPage,
+      UsersPage,
     };
 
     // Normaliza o nome (aceita variações vindas do banco)

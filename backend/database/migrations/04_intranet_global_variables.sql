@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS intranet_global_variables;
+DROP TABLE IF EXISTS intranet_variable_options;
 
-CREATE TABLE intranet_global_variables (
+CREATE TABLE intranet_variable_options (
   id SERIAL PRIMARY KEY,
   key VARCHAR(100) NOT NULL,                -- Nome da variável, ex: 'filial_padrao'
   value VARCHAR(100) NOT NULL,              -- Valor técnico, ex: '0101'
@@ -13,16 +13,16 @@ CREATE TABLE intranet_global_variables (
 );
 
 -- Índice para consultas rápidas
-CREATE INDEX idx_intranet_global_variables_key ON intranet_global_variables(key);
+CREATE INDEX idx_intranet_variable_options_key ON intranet_variable_options(key);
 
 
-INSERT INTO intranet_global_variables (key, value, description, is_default)
+INSERT INTO intranet_variable_options (key, value, description, is_default)
 VALUES
   ('filial_padrao', '0101', 'Fazenda Piratininga', TRUE),
   ('filial_padrao', '0102', 'Fazenda Rio Verde', FALSE);
 
 -- Competências
-INSERT INTO intranet_global_variables (key, value, description, is_default)
+INSERT INTO intranet_variable_options (key, value, description, is_default)
 VALUES
   ('competencia', '2025/09', 'Setembro/2025', FALSE),
   ('competencia', '2025/10', 'Outubro/2025', TRUE);
