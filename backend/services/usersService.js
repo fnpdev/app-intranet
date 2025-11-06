@@ -113,6 +113,7 @@ async function getUserVariablesEffective(user_id) {
     SELECT
       v.id AS variable_id,
       v.description AS variable_description,
+      uo.description AS option_description,
       v.key AS key,
       COALESCE(uv.value, o.value) AS value,
       (uv.value IS NOT NULL) AS is_user_set,
@@ -123,6 +124,8 @@ async function getUserVariablesEffective(user_id) {
       ON o.variable_id = v.id AND o.is_default = TRUE
     LEFT JOIN intranet_user_variables uv
       ON uv.variable_id = v.id AND uv.user_id = $1
+    LEFT JOIN intranet_variable_options uo
+      ON uo.variable_id = v.id AND uo.value = uv.value
     WHERE v.is_active = TRUE
     ORDER BY v.id;
   `;

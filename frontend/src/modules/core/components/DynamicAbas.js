@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Paper, Tabs, Tab, Badge, Box, Tooltip } from '@mui/material';
-import TabelaAtributos from '../../suprimentos/components/TabelaAtributos';
+import TabelaAtributos from './TabelaAtributos';
 
 /**
  * Renderiza as abas com as queries secundárias da página
@@ -49,7 +49,7 @@ export default function DynamicAbas({ queries = [], data = {} }) {
       >
         {abas.map((aba) => {
           const count = getBadgeCount(aba.key);
-          const label = aba.description || aba.key;
+          const label = aba.name || aba.key;
 
           return (
             <Tooltip key={aba.key} title={label} arrow>

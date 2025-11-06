@@ -21,7 +21,11 @@ export default function DynamicResumo({ info }) {
         {campos.map(([campo, valor]) => (
           <Grid item xs={12} sm={6} md={4} key={campo}>
             <Typography variant="body2">
-              <b>{campo.replace(/_/g, ' ')}:</b> {String(valor)}
+              <b>{campo
+                .replace(/_/g, ' ')
+                .split(" ")
+                .map(campo => campo.charAt(0).toUpperCase() + campo.slice(1).toLowerCase())
+                .join(" ")}:</b> {String(valor)}
             </Typography>
           </Grid>
         ))}

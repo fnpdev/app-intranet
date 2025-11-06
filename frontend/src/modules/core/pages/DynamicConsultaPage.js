@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
-  Box, TextField, Button, Paper, CircularProgress, Alert
+  Box, TextField, Button, Paper, CircularProgress, Alert, Typography
 } from '@mui/material';
 import { useAuth } from '../../../context/AuthContext';
 import DynamicResumo from '../components/DynamicResumo';
@@ -12,26 +12,29 @@ const API_URL = process.env.REACT_APP_API_URL;
 
 export default function DynamicConsultaPage({ moduleKey, pageKey }) {
   const params = useParams();
-  const { token, variables = [] } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { token, user, variables = [] } = useAuth();
 
-  const codFilial = variables.find(v => v.key === 'filial_padrao')?.value || '0101';
+  const idParam = params.id || '';
 
-  // aceita vários nomes de param da URL
-  const idParam = params.produto || params.sc || params.sa || params.id || '';
-  const [codBusca, setCodBusca] = useState(idParam || '');
+  const [varBusca, setCodBusca] = useState('');
   const [config, setConfig] = useState(null);
   const [dados, setDados] = useState({});
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+  const [activeTab, setActiveTab] = useState(null); // aba selecionada
   const fetchedOnMount = useRef(false);
 
-  // --- Carrega definição da página (depende de token)
+  // =========================================================
+  // 🔧 Carrega configuração da página
+  // =========================================================
   useEffect(() => {
     const loadPageDefinition = async () => {
       if (!token || !pageKey) return;
 
       try {
-        const resp = await axios.get(`${API_URL}/api/queries/page/${pageKey}`, {
+        const resp = await axios.get(`${API_URL}/api/pages/queries/${pageKey}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -52,7 +55,35 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
     loadPageDefinition();
   }, [pageKey, token]);
 
-  // --- Função de busca: usa explicitamente o body com codBusca e o header Authorization
+  // =========================================================
+  // 🧹 Limpa variáveis sempre que a página for carregada/trocada
+  // =========================================================
+  useEffect(() => {
+    setCodBusca('');
+    setDados({});
+    setErro('');
+    fetchedOnMount.current = false;
+  }, [pageKey]);
+
+  // =========================================================
+  // 🔄 Monta payload dinâmico a partir das variáveis
+  // =========================================================
+  const montarPayload = (valorBusca) => {
+    const payload = {};
+    variables.forEach((v) => {
+      if (v?.key) payload[v.key] = v.value ?? null;
+    });
+    if (valorBusca) payload.varBusca = valorBusca;
+    if (user) {
+      payload.username = user.username;
+      payload.userlevel = user.user_level;
+    }
+    return payload;
+  };
+
+  // =========================================================
+  // 🔍 Buscar dados
+  // =========================================================
   const buscarDados = async (valor) => {
     if (!valor) {
       setErro('Informe um código válido.');
@@ -71,14 +102,13 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
     setErro('');
 
     try {
-      // <-- corpo e headers exatamente como você esperava
+      const payload = montarPayload(valor);
+
       const resp = await axios.post(
-        `${API_URL}/api/queries/page/${pageKey}`,
-        { codBusca: valor, codFilial },
+        `${API_URL}/api/pages/queries/${pageKey}`,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      console.debug('Resposta buscaDados:', resp.data);
 
       if (resp.data?.success) {
         setDados(resp.data.data || {});
@@ -95,46 +125,137 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
     }
   };
 
-  // --- Se o cod vem da URL, atualiza o campo e tenta buscar automaticamente
+  // =========================================================
+  // 🔁 Se houver param "id" (rota ou query) na URL, popula o campo
+  // =========================================================
   useEffect(() => {
-    // sempre mantemos o valor do campo sincronizado com params
-    if (idParam && idParam !== codBusca) {
+    if (idParam && idParam !== varBusca) {
       setCodBusca(idParam);
-      fetchedOnMount.current = false; // forçar nova busca quando param muda
+      fetchedOnMount.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idParam]);
 
-  // --- Run automática: só quando temos token, config e codBusca e ainda não buscou
+  // =========================================================
+  // 🚀 Busca automática ao montar (quando aplicável)
+  // =========================================================
   useEffect(() => {
-    if (!fetchedOnMount.current && codBusca && config && token) {
-      buscarDados(codBusca);
+    if (!fetchedOnMount.current && varBusca && config && token) {
+      buscarDados(varBusca);
       fetchedOnMount.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codBusca, config, token]);
+  }, [varBusca, config, token]);
 
+  // =========================================================
+  // 🧭 Acionamento manual - atualiza URL e executa busca
+  // =========================================================
   const buscarOuNavegar = () => {
-    if (!codBusca) {
+    if (!varBusca) {
       setErro('Informe um código para consulta.');
       return;
     }
-    buscarDados(codBusca);
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    if (pathParts.length > 0) {
+      pathParts[pathParts.length - 1] = encodeURIComponent(varBusca);
+    }
+    const newPath = '/' + pathParts.join('/');
+    navigate(newPath);
+    buscarDados(varBusca);
   };
 
-    // =========================================================
-  // 5️⃣ Define query principal (is_main) e demais queries
+  // =========================================================
+  // 🖨️ Impressão
+  // =========================================================
+  const imprimirConsulta = () => {
+    if (!dados || !config) {
+      alert('Nenhum dado disponível para impressão.');
+      return;
+    }
+
+    const mainQuery = config?.queries?.find(q => q.is_main);
+    const mainData = mainQuery ? (dados[mainQuery.key]?.[0] || {}) : {};
+    const otherQueries = config?.queries?.filter(q => !q.is_main) || [];
+
+    // Pega a aba ativa
+    const abaAtiva = activeTab || (otherQueries.length ? otherQueries[0].key : null);
+    const dadosAbaAtiva = abaAtiva ? dados[abaAtiva] || [] : [];
+
+    // Monta o conteúdo da impressão
+    const html = `
+      <html>
+        <head>
+          <title>Impressão da Consulta</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+            h1, h2 { margin-bottom: 8px; }
+            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+            th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 13px; }
+            th { background: #f5f5f5; }
+            .resumo { margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <h1>Consulta: ${config?.page_description || pageKey}</h1>
+
+          <div class="resumo">
+            <h2>Resumo</h2>
+            <table>
+              <tbody>
+                ${Object.entries(mainData).map(([key, val]) => `
+                  <tr><th>${key}</th><td>${val ?? ''}</td></tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          ${
+            abaAtiva
+              ? `
+              <div class="abas">
+                <h2>Aba: ${abaAtiva}</h2>
+                ${
+                  dadosAbaAtiva.length
+                    ? `
+                      <table>
+                        <thead>
+                          <tr>${Object.keys(dadosAbaAtiva[0]).map(k => `<th>${k}</th>`).join('')}</tr>
+                        </thead>
+                        <tbody>
+                          ${dadosAbaAtiva.map(row => `
+                            <tr>${Object.values(row).map(v => `<td>${v ?? ''}</td>`).join('')}</tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    `
+                    : '<p>Nenhum dado encontrado nesta aba.</p>'
+                }
+              </div>
+            `
+              : ''
+          }
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  // =========================================================
+  // 🧩 Queries principais
   // =========================================================
   const mainQuery = config?.queries?.find(q => q.is_main);
   const otherQueries = config?.queries?.filter(q => !q.is_main) || [];
   const mainData = mainQuery ? (dados[mainQuery.key]?.[0] || {}) : {};
 
   // =========================================================
-  // Renderização
+  // 🧱 Renderização
   // =========================================================
   return (
     <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4 }}>
-      {/* 🔍 Busca */}
+      {/* 🔍 Barra de ações */}
       <Paper
         sx={{
           p: { xs: 1, sm: 2 },
@@ -143,48 +264,56 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 2,
           alignItems: 'center',
+          justifyContent: 'space-between'
         }}
       >
-        <TextField
-          label="Código de busca"
-          variant="outlined"
-          size="small"
-          value={codBusca}
-          onChange={(e) => setCodBusca(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && buscarOuNavegar()}
-          sx={{ flex: 1, minWidth: 200 }}
-        />
+        <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
+          <TextField
+            label="Código de busca"
+            variant="outlined"
+            size="small"
+            value={varBusca}
+            onChange={(e) => setCodBusca(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && buscarOuNavegar()}
+            sx={{ flex: 1, minWidth: 200 }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={buscarOuNavegar}
+            sx={{ minWidth: 110, fontWeight: 600 }}
+          >
+            Buscar
+          </Button>
+        </Box>
+
         <Button
-          variant="contained"
-          color="primary"
-          onClick={buscarOuNavegar}
+          variant="outlined"
+          color="secondary"
+          onClick={imprimirConsulta}
           sx={{ minWidth: 110, fontWeight: 600 }}
         >
-          Buscar
+          Imprimir
         </Button>
       </Paper>
 
-      {/* ⏳ Loading */}
       {loading && (
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', mt: 3 }}>
           <CircularProgress />
         </Box>
       )}
 
-      {/* ⚠️ Erro */}
       {erro && !loading && <Alert severity="error" sx={{ my: 2 }}>{erro}</Alert>}
 
-      {/* 🧾 Resumo principal */}
       {!loading && mainQuery && <DynamicResumo info={mainData} />}
 
-      {/* 📊 Abas dinâmicas */}
       {!loading && otherQueries.length > 0 && (
         <DynamicAbas
           queries={otherQueries}
           data={dados}
+          onTabChange={setActiveTab} // pega a aba ativa
         />
       )}
     </Box>
   );
-
 }

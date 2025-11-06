@@ -1,15 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middlewares/authMiddleware');
-const { getPages, getPageByKey, getPageQueries } = require('../services/pageService');
-const { getQueryByKey, executeDynamicQuery } = require('../services/queriesService');
+const { pagesService, queriesService } = require('../services/pageService');
 
 // =======================================================
 // 🔹 GET /api/pages → Lista todas as páginas
 // =======================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const pages = await getPages();
+    const pages = await pagesService.getPages();
     res.json({ success: true, data: pages });
   } catch (err) {
     console.error('Erro ao listar páginas:', err);
@@ -23,13 +22,13 @@ router.get('/', verifyToken, async (req, res) => {
 router.get('/:pageKey', verifyToken, async (req, res) => {
   try {
     const { pageKey } = req.params;
-    const page = await getPageByKey(pageKey);
+    const page = await pagesService.getPageByKey(pageKey);
     if (!page)
       return res
         .status(404)
         .json({ success: false, message: 'Página não encontrada' });
 
-    const queries = await getPageQueries(pageKey);
+    const queries = await pagesService.getPageQueries(pageKey);
     res.json({
       success: true,
       data: { ...page, queries },
@@ -54,14 +53,14 @@ router.post('/run-query', verifyToken, async (req, res) => {
         .json({ success: false, message: 'queryKey é obrigatório' });
 
     // Busca a query pelo key
-    const queryDef = await getQueryByKey(queryKey);
+    const queryDef = await queriesService.getQueryByKey(queryKey);
     if (!queryDef)
       return res
         .status(404)
         .json({ success: false, message: 'Query não encontrada' });
 
     // Executa no banco correspondente
-    const result = await executeDynamicQuery(queryDef, params);
+    const result = await queriesService.executeDynamicQuery(queryDef, params);
 
     res.json({
       success: true,
@@ -77,6 +76,51 @@ router.post('/run-query', verifyToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao executar query dinâmica',
+      details: err.message,
+    });
+  }
+});
+
+
+router.get('/queries/:pageKey', verifyToken, async (req, res) => {
+  try {
+    const { pageKey } = req.params;
+    const data = await queriesService.getPageDefinition(pageKey);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('❌ Erro ao buscar definição da página:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar definição da página',
+      details: err.message,
+    });
+  }
+});
+
+/**
+ * 🔹 POST /api/queries/page/:pageKey
+ * Executa TODAS as queries associadas à página,
+ * recebendo apenas os parâmetros no body.
+ * Exemplo body:
+ * {
+ *   "codFilial": "0101",
+ *   "codProduto": "100200"
+ * }
+ */
+router.post('/queries/:pageKey', verifyToken, async (req, res) => {
+  try {
+    const { pageKey } = req.params;
+    const params = req.body || {};
+
+    // Executa todas as queries dessa página com base no banco
+    const result = await queriesService.executePageQueries(pageKey, params);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('❌ Erro ao executar queries da página:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao executar queries da página',
       details: err.message,
     });
   }

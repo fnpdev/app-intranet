@@ -91,7 +91,8 @@ export default function LayoutBase() {
             {(variables || []).map((v, i) => (
               <span key={v.id}>
                 {i > 0 && ' | '}
-                <strong>{v.variable_description}:</strong> {v.value}
+                <strong>{v.variable_description}:</strong> {v.option_description
+}
               </span>
             ))}
           </Typography>

@@ -27,7 +27,6 @@ app.use('/api/user-vars',             verifyToken, require('./routes/users/userV
 app.use('/api/user-permissions',      verifyToken, require('./routes/users/userPermissionsRoutes'));
 
 
-app.use('/api/queries', verifyToken, require('./routes/queriesRoutes'));
 app.use('/api/suprimento', verifyToken, require('./routes/suprimentosRoutes'));
 */
 // 🔒 Rotas ERP (novas)

@@ -32,13 +32,26 @@ export default function UsuarioPopup({ open, onClose, user }) {
   // ====================================================
   // 🔹 Carrega dados (módulos, permissões, variáveis)
   // ====================================================
-  useEffect(() => {
-    if (!open) return;
-    carregarModulos();
+useEffect(() => {
+  if (!open) return;
 
-    if (user?.id) carregarPermissoes(user.id);
-    if (user?.username) carregarVariaveis(user.username);
-  }, [open]);
+  const init = async () => {
+    setLoading(true);
+    try {
+      await carregarModulos();
+      if (user?.id) {
+        await carregarPermissoes(user.id);
+        await carregarVariaveis(user.id);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dados do popup:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  init();
+}, [open]);
 
   const carregarModulos = async () => {
     try {
@@ -62,17 +75,16 @@ export default function UsuarioPopup({ open, onClose, user }) {
     }
   };
 
-  const carregarVariaveis = async (username) => {
-    try {
-      const resp = await axios.get(`${API_URL}/api/user-vars/${username}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setVariables(resp.data.data || []);
-    } catch (err) {
-      console.error('Erro ao carregar variáveis:', err);
-    }
-  };
-
+ const carregarVariaveis = async (userId) => {
+  try {
+    const resp = await axios.get(`${API_URL}/api/users/permissions/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setVariables(resp.data.data || []);
+  } catch (err) {
+    console.error('Erro ao carregar variáveis:', err);
+  }
+};
   // ====================================================
   // 💾 SALVAR USUÁRIO (CRUD principal)
   // ====================================================
@@ -126,20 +138,21 @@ export default function UsuarioPopup({ open, onClose, user }) {
     );
   };
 
-  const salvarVariaveis = async () => {
-    if (!formData.username) return;
-    setSaving(true);
-    try {
-      await axios.put(`${API_URL}/api/user-vars/${formData.username}`, { variables }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      carregarVariaveis(formData.username);
-    } catch (err) {
-      console.error('Erro ao salvar variáveis:', err);
-    } finally {
-      setSaving(false);
-    }
-  };
+
+const salvarVariaveis = async () => {
+  if (!formData.id) return;
+  setSaving(true);
+  try {
+    await axios.put(`${API_URL}/api/user-vars/${formData.id}`, { variables }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    await carregarVariaveis(formData.id);
+  } catch (err) {
+    console.error('Erro ao salvar variáveis:', err);
+  } finally {
+    setSaving(false);
+  }
+};
 
   // ====================================================
   // 🔹 Render

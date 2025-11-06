@@ -4,6 +4,7 @@ import Login from '../pages/Login';
 import NotAuthorizedPage from '../pages/NotAuthorizedPage';
 import NotFound from '../pages/NotFound';
 import DynamicConsultaPage from '../modules/core/pages/DynamicConsultaPage'; // ✅ novo caminho base
+import DynamicConsultaAutoPage from '../modules/core/pages/DynamicConsultaAutoPage'; // ✅ novo caminho base
 import DashboardPage  from '../modules/intranet/pages/DashboardPage';
 import UsersPage from '../modules/admin/pages/UsersPage'
 /**
@@ -17,6 +18,7 @@ export const loadDynamicComponent = (name) => {
       NotAuthorizedPage,
       NotFound,
       DynamicConsultaPage, // ✅ inclui componente genérico dinâmico
+      DynamicConsultaAutoPage,
       DashboardPage,
       UsersPage,
     };

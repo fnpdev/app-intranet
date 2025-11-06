@@ -27,7 +27,7 @@ export default function TabelaAtributos({ dados }) {
   // Função para abrir link em nova aba
   const handleLinkClick = (url) => {
     if (url && url.toString().trim()) {
-      const finalUrl = `${REACT_APP_LINK}/suprimentos/${url}`;
+      const finalUrl = `${REACT_APP_LINK}${url}`;
       window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
   };

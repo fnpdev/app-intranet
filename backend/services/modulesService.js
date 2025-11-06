@@ -27,11 +27,11 @@ const modulesCrud = createCrudService('intranet_modules', allowedFieldsModules);
 async function getAllModules() {
   const res = await db.query(`
     SELECT 
-      m.id AS module_id,
-      m.key AS module_key,
-      m.name AS module_name,
-      m.description AS module_description,
-      m.is_active AS module_active,
+      m.id AS id,
+      m.key AS key,
+      m.name AS name,
+      m.description AS description,
+      m.is_active AS active,
       json_agg(
         json_build_object(
           'key', p.key,

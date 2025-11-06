@@ -4,7 +4,8 @@ const router = express.Router();
 const { requireLevel } = require('../middlewares/accessLevelMiddleware');
 const {
   usersService,
-  variablesService
+  variablesService,
+  permissionsService
 } = require('../services/usersService');
 const db = require('../config/db_postgres');
 
@@ -97,6 +98,23 @@ router.post('/variables', async (req, res) => {
     });
   }
 });
+
+
+
+// =======================================================
+// 🔒 Listar todos (admin)
+// =======================================================
+router.get('/permissions/:id', requireLevel(9), async (req, res) => {
+  try {
+    const permissionsUsers = await permissionsService.getUserPermissionsByUserId();
+    res.json({ success: true, data: permissionsUsers });
+  } catch (err) {
+    console.error('Erro ao listar usuários:', err);
+    res.status(500).json({ success: false, message: 'Erro ao listar usuários.' });
+  }
+  
+});
+
 
 
 // =======================================================
