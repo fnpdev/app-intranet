@@ -1,4 +1,4 @@
-// config/database.js
+// backend\config\db_postgres.js
 const { Pool } = require('pg');
 require('dotenv').config();
 
