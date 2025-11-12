@@ -7,6 +7,11 @@ import DynamicConsultaPage from '../modules/core/pages/DynamicConsultaPage'; // 
 import DynamicConsultaAutoPage from '../modules/core/pages/DynamicConsultaAutoPage'; // ✅ novo caminho base
 import DashboardPage  from '../modules/intranet/pages/DashboardPage';
 import UsersPage from '../modules/admin/pages/UsersPage'
+import InvoiceFiscalPage from '../modules/accounting/pages/InvoiceFiscalPage'
+import InvoiceSuprimentosPage from '../modules/accounting/pages/InvoiceSuprimentosPage'
+import InvoiceEstoquePage from '../modules/accounting/pages/InvoiceEstoquePage'
+import InvoicePortariaPage from '../modules/accounting/pages/InvoicePortariaPage'
+
 /**
  * 🔹 Função que carrega componentes dinâmicos a partir do nome vindo do backend
  */
@@ -21,6 +26,10 @@ export const loadDynamicComponent = (name) => {
       DynamicConsultaAutoPage,
       DashboardPage,
       UsersPage,
+      InvoiceFiscalPage,
+      InvoiceSuprimentosPage,
+      InvoiceEstoquePage,
+      InvoicePortariaPage,
     };
 
     // Normaliza o nome (aceita variações vindas do banco)

@@ -20,15 +20,8 @@ app.use('/api/users',                 verifyToken,  require('./routes/usersRoute
 app.use('/api/variables',             verifyToken,  require('./routes/variablesRoutes'));
 app.use('/api/modules',               verifyToken,  require('./routes/modulesRoutes'));
 app.use('/api/pages',                 verifyToken,  require('./routes/pagesRoutes'));
+app.use('/contabil/nf',                verifyToken,  require('./routes/accountingInvoiceRoutes'));
 
-/*
-app.use('/api/variable-definitions',  verifyToken, require('./routes/admin/variableDefinitionsRoutes'));
-app.use('/api/user-vars',             verifyToken, require('./routes/users/userVariablesRoutes'));
-app.use('/api/user-permissions',      verifyToken, require('./routes/users/userPermissionsRoutes'));
-
-
-app.use('/api/suprimento', verifyToken, require('./routes/suprimentosRoutes'));
-*/
 // 🔒 Rotas ERP (novas)
 
 // ==================== ERROR HANDLER ====================
