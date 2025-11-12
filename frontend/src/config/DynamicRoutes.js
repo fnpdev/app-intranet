@@ -20,7 +20,6 @@ export default function DynamicRoutes({ modules = [] }) {
                 path={page.path}
                 element={
                   <ModuleRoute module={module.module_key}>
-                    {/* passa module/page como props */}
                     <PageComponent
                       moduleKey={module.module_key}
                       pageKey={page.key}

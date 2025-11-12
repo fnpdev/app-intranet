@@ -10,9 +10,9 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
-  const [variables, setVariables] = useState([]); // variáveis do usuário (com variable_id)
-  const [variableDefs, setVariableDefs] = useState([]); // definições globais
-  const [variableMap, setVariableMap] = useState({}); // key -> valor efetivo (para rodapé)
+  const [variables, setVariables] = useState([]);
+  const [variableDefs, setVariableDefs] = useState([]);
+  const [variableMap, setVariableMap] = useState({});
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showVarDialog, setShowVarDialog] = useState(false);
@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
   const API_URL = process.env.REACT_APP_API_URL;
 
   // ======================================================
-  // 🔑 Inicialização — carrega token e informações do usuário
+  // 🔑 Inicialização — carrega token e usuário
   // ======================================================
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
@@ -34,13 +34,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ======================================================
-  // 🔍 Buscar informações do usuário logado + definições
+  // 🔍 Buscar informações do usuário logado
   // ======================================================
   const fetchUserInfo = async (jwtToken = token) => {
     try {
       setLoading(true);
 
-      // 1️⃣ Busca dados do usuário
       const resp = await axios.get(`${API_URL}/api/users/me`, {
         headers: { Authorization: `Bearer ${jwtToken}` },
       });
@@ -48,7 +47,6 @@ export function AuthProvider({ children }) {
       if (!resp.data?.success) throw new Error('Erro ao consultar /api/users/me');
       const data = resp.data.data;
 
-      // 👤 Dados do usuário
       setUser({
         id: data.id,
         username: data.username,
@@ -60,13 +58,10 @@ export function AuthProvider({ children }) {
         is_active: data.is_active,
       });
 
-      // ⚙️ Variáveis do usuário
       setVariables(data.variables || []);
-
-      // 🧩 Módulos acessíveis
       setModules(data.modules || []);
 
-      // 2️⃣ Busca definições de variáveis globais
+      // 🔧 Variáveis globais
       const defsResp = await axios.get(`${API_URL}/api/variables`, {
         headers: { Authorization: `Bearer ${jwtToken}` },
       });
@@ -74,12 +69,12 @@ export function AuthProvider({ children }) {
       const defs = (defsResp.data.data || []).map(v => ({
         id: v.id,
         key: v.key || `var_${v.id}`,
-        description: v.variable_description || v.description || v.key || `Variável ${v.id}`,
+        description: v.variable_description || v.description || v.key,
         options: v.options || [],
       }));
       setVariableDefs(defs);
 
-      // 3️⃣ Mapeia valores efetivos (para o rodapé)
+      // 🗺️ Mapa de variáveis efetivas
       const userVarMap = {};
       (data.variables || []).forEach(v => {
         userVarMap[v.variable_id] = v.value;
@@ -91,7 +86,6 @@ export function AuthProvider({ children }) {
       });
 
       setVariableMap(varMap);
-
     } catch (err) {
       console.error('❌ Erro ao carregar informações do usuário:', err);
       logout();
@@ -104,10 +98,7 @@ export function AuthProvider({ children }) {
   // 🔐 Login
   // ======================================================
   const login = async ({ token }) => {
-    if (!token) {
-      console.error('❌ Token ausente no retorno do login');
-      return;
-    }
+    if (!token) return;
     localStorage.setItem('token', token);
     setToken(token);
     await fetchUserInfo(token);
@@ -136,7 +127,6 @@ export function AuthProvider({ children }) {
     setSavingVars(true);
 
     try {
-      // Monta payload: array de { variable_id, value }
       const updates = Object.entries(localVars).map(([variable_id, value]) => ({
         variable_id: parseInt(variable_id, 10),
         value,
@@ -146,12 +136,8 @@ export function AuthProvider({ children }) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // ✅ Fecha o modal imediatamente
       setShowVarDialog(false);
-
-      // 🔄 Atualiza em background
       setTimeout(() => fetchUserInfo(), 300);
-
     } catch (err) {
       console.error('❌ Erro ao salvar variáveis do usuário:', err);
     } finally {
@@ -160,7 +146,23 @@ export function AuthProvider({ children }) {
   };
 
   // ======================================================
-  // 🧱 Modal de preferências do usuário
+  // 🔒 Verificação de permissão de módulo (corrigida)
+  // ======================================================
+  const hasModuleAccess = (moduleKey) => {
+    if (!user) return false;
+    if (parseInt(user.user_level, 10) === 9 || user.user_level === 'admin') return true;
+    if (!modules || modules.length === 0) return false;
+
+    const key = (moduleKey || '').toLowerCase();
+    const allowedModules = modules
+      .filter(m => m?.module_key)
+      .map(m => m.module_key.toLowerCase());
+
+    return allowedModules.includes(key);
+  };
+
+  // ======================================================
+  // 🧱 Modal de preferências
   // ======================================================
   const VariableDialog = () => {
     const [localVars, setLocalVars] = useState({});
@@ -168,8 +170,6 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
       if (!showVarDialog) return;
-
-      // Cria mapa local { variable_id: value }
       const init = {};
       (variables || []).forEach(v => {
         init[v.variable_id] = v.value;
@@ -191,12 +191,10 @@ export function AuthProvider({ children }) {
     return (
       <Dialog open={showVarDialog} fullWidth maxWidth="sm">
         <DialogTitle>Preferências do Usuário</DialogTitle>
-
         <DialogContent dividers>
           <Typography variant="body2" sx={{ mb: 2 }}>
             Escolha as opções padrão que serão utilizadas nas telas do sistema.
           </Typography>
-
           {variableDefs.map(def => (
             <Box key={def.id} sx={{ mb: 3 }}>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
@@ -221,7 +219,6 @@ export function AuthProvider({ children }) {
             </Box>
           ))}
         </DialogContent>
-
         <DialogActions>
           <Button onClick={logout} color="error">Sair</Button>
           <Button onClick={() => setShowVarDialog(false)} color="inherit">Cancelar</Button>
@@ -233,9 +230,6 @@ export function AuthProvider({ children }) {
     );
   };
 
-  // ======================================================
-  // 🌀 Tela de carregamento
-  // ======================================================
   if (loading) {
     return (
       <Box sx={{ textAlign: 'center', mt: 10 }}>
@@ -247,9 +241,6 @@ export function AuthProvider({ children }) {
     );
   }
 
-  // ======================================================
-  // ✅ Contexto global
-  // ======================================================
   return (
     <AuthContext.Provider
       value={{
@@ -263,6 +254,7 @@ export function AuthProvider({ children }) {
         logout,
         refetchUser: fetchUserInfo,
         setShowVarDialog,
+        hasModuleAccess,
       }}
     >
       {children}

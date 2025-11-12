@@ -1,22 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LayoutBase from './layout/LayoutBase';
 import DynamicRoutes from './config/DynamicRoutes';
 import { staticRoutes } from './config/routeComponents';
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL;
 
 // ========================= TokenWatcher =========================
 function TokenWatcher({ children }) {
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!token) return;
-    
+
     try {
       const { exp } = jwtDecode(token);
       const agora = Date.now();
@@ -45,46 +42,15 @@ function TokenWatcher({ children }) {
 
 // ========================= AppRoutes =========================
 function AppRoutes() {
-  const { token } = useAuth();
-  const [modules, setModules] = useState([]);
-  const [loadingModules, setLoadingModules] = useState(true);
-
-  useEffect(() => {
-    const fetchModules = async () => {
-      if (!token) {
-        setModules([]);
-        setLoadingModules(false);
-        return;
-      }
-      
-      try {
-        const resp = await axios.get(`${API_URL}/api/modules`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (resp.data?.success) setModules(resp.data.data || []);
-      } catch (err) {
-        console.error('Erro ao buscar módulos:', err);
-      } finally {
-        setLoadingModules(false);
-      }
-    };
-
-    fetchModules();
-  }, [token]);
-
-  if (loadingModules) {
-    return <div style={{ textAlign: 'center', padding: 40 }}>🔄 Carregando módulos... </div>;
-  }
+  const { token, modules } = useAuth();
 
   return (
     <Routes>
       {/* Rotas públicas SEM Layout */}
       {staticRoutes?.publicNoLayout?.map((r) => (
-        
         <Route key={r.path} path={r.path} element={<r.element />} />
-        
       ))}
-      
+
       {/* Rotas públicas COM Layout */}
       {staticRoutes?.publicWithLayout?.length > 0 && (
         <Route element={<LayoutBase />}>
@@ -94,10 +60,10 @@ function AppRoutes() {
         </Route>
       )}
 
-      {/* Rotas privadas (dinâmicas do backend) */}
-      {token && (
+      {/* Rotas privadas — baseadas nos módulos do usuário */}
+      {token && modules?.length > 0 && (
         <Route element={<LayoutBase />}>
-          {DynamicRoutes({ modules })} {/* ✅ chamando a função diretamente */}
+          {DynamicRoutes({ modules })}
         </Route>
       )}
 

@@ -3,21 +3,17 @@ import { useAuth } from '../context/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 
 export default function ModuleRoute({ module, children }) {
-  const { user, token } = useAuth();
+  const { token, hasModuleAccess, user } = useAuth();
   const location = useLocation();
 
   if (!token) {
-    // 🔒 Usuário não autenticado → redireciona para login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  const hasPermission = user?.permissions?.[module];
-
-  if (hasPermission === false) {
-    // 🚫 Sem permissão → página de acesso negado
+  if (!hasModuleAccess(module)) {
+    console.warn('🚫 Acesso negado ao módulo:', module, 'para usuário', user?.username);
     return <Navigate to="/not-authorized" replace />;
   }
 
-  // ✅ Usuário autenticado e com permissão → renderiza a rota
   return children;
 }
