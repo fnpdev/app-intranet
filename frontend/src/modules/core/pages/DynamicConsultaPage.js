@@ -153,11 +153,27 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
       setErro('Informe um código para consulta.');
       return;
     }
+
     const pathParts = location.pathname.split('/').filter(Boolean);
-    if (pathParts.length > 0) {
-      pathParts[pathParts.length - 1] = encodeURIComponent(varBusca);
+    let newPath = '';
+
+    // Encontra o índice do módulo, ex: 'consulta-sc'
+    const consultaIndex = pathParts.findIndex(p => p === pageKey);
+
+    if (consultaIndex !== -1) {
+      // Se já houver um ID após o pageKey, substitui
+      if (pathParts[consultaIndex + 1]) {
+        pathParts[consultaIndex + 1] = encodeURIComponent(varBusca);
+        newPath = '/' + pathParts.join('/');
+      } else {
+        // Caso contrário, adiciona o ID
+        newPath = '/' + [...pathParts, encodeURIComponent(varBusca)].join('/');
+      }
+    } else {
+      // fallback — adiciona o pageKey e o código
+      newPath = `/${pageKey}/${encodeURIComponent(varBusca)}`;
     }
-    const newPath = '/' + pathParts.join('/');
+
     navigate(newPath);
     buscarDados(varBusca);
   };
@@ -207,14 +223,12 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
             </table>
           </div>
 
-          ${
-            abaAtiva
-              ? `
+          ${abaAtiva
+        ? `
               <div class="abas">
                 <h2>Aba: ${abaAtiva}</h2>
-                ${
-                  dadosAbaAtiva.length
-                    ? `
+                ${dadosAbaAtiva.length
+          ? `
                       <table>
                         <thead>
                           <tr>${Object.keys(dadosAbaAtiva[0]).map(k => `<th>${k}</th>`).join('')}</tr>
@@ -226,12 +240,12 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
                         </tbody>
                       </table>
                     `
-                    : '<p>Nenhum dado encontrado nesta aba.</p>'
-                }
+          : '<p>Nenhum dado encontrado nesta aba.</p>'
+        }
               </div>
             `
-              : ''
-          }
+        : ''
+      }
         </body>
       </html>
     `;
