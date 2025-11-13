@@ -5,8 +5,9 @@ export default function InvoicePortariaPage() {
     <InvoiceBasePage
       title="NF - Portaria"
       step="portaria"
-      allowCreate
-      allowUpdate={false} // 🔒 não pode atualizar
+      allowCreate // ✅ Pode criar
+      allowUpdate={false} // ❌ Bloqueia atualizações
+      allowClose={false}
     />
   );
 }

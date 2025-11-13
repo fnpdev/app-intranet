@@ -40,7 +40,7 @@ router.put('/:id/step', requireLevel(1), async (req, res) => {
   try {
     const data = await service.updateStep({
       id: req.params.id,
-      ...req.body
+      ...req.body, // <-- já captura to_user_id
     });
     res.json({ success: true, data });
   } catch (err) {
@@ -87,5 +87,15 @@ router.get('/report/performance', requireLevel(9), async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router.get('/saam/:id', requireLevel(1), async (req, res) => {
+  try {
+    const data = await service.getNFByKey(req.params.id);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 
 module.exports = router;
