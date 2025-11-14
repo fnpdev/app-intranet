@@ -32,7 +32,7 @@ const getPool = async () => {
   if (!pool) {
     try {
       pool = await sql.connect(dbConfig);
-      console.log('✅ Conexão com SQL Server estabelecida com sucesso');
+      console.log('✅ Conexão com SQL Server estabelecida com sucesso - SQL SERVER');
       
       // Listener para erros de conexão
       pool.on('error', (err) => {

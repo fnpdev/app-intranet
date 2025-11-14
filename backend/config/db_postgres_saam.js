@@ -34,7 +34,7 @@ const getPool = async () => {
       pool = new Pool(dbConfig);
       
       const client = await pool.connect();
-      console.log('✅ Conexão com PostgreSQL estabelecida com sucesso');
+      console.log('✅ Conexão com PostgreSQL estabelecida com sucesso - SAAM');
       client.release();
       
       pool.on('error', (err) => {

@@ -1,15 +1,19 @@
-// frontend/src/modules/accounting/pages/InvoiceBasePage.js
+//frontend\src\modules\accounting\pages\InvoiceBasePage.js
 import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Button, CircularProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, FormControl, InputLabel, Select, MenuItem, Alert, Badge
+  TextField, FormControl, InputLabel, Select, MenuItem, Alert,
+  Tabs, Tab   // 👈 ADICIONAR AQUI
 } from '@mui/material';
+
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import AppAlert from '../../core/components/AppAlert';
 import InvoiceStepsTabs from '../components/InvoiceStepsTabs';
+import { useNavigate } from 'react-router-dom';
+import InvoicePrint from '../components/InvoicePrint';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -24,6 +28,7 @@ export default function InvoiceBasePage(props) {
     refresh
   } = props;
 
+  const navigate = useNavigate();
   const { token, user } = useAuth();
 
   // Config para o step atual (vem da página que monta actionsByTransition)
@@ -35,7 +40,8 @@ export default function InvoiceBasePage(props) {
     allowClose: configAllowClose = false,
     allowLogs: configAllowLogs = true,
     allowCount: configAllowCount = false,
-    allowInvoice: configAllowInvoice = false   // 👈 NOVO
+    allowInvoice: configAllowInvoice = false,
+    allowPrint: configAllowPrint = false
   } = config;
 
   const allowCreate = props.allowCreate ?? configAllowCreate;
@@ -43,12 +49,14 @@ export default function InvoiceBasePage(props) {
   const allowClose = props.allowClose ?? configAllowClose;
   const allowLogs = props.allowLogs ?? configAllowLogs;
   const allowCount = props.allowCount ?? configAllowCount;
-  const allowInvoice = props.allowInvoice ?? configAllowInvoice; // 👈 NOVOS
+  const allowInvoice = props.allowInvoice ?? configAllowInvoice;
+  const allowPrint = props.allowPrint ?? configAllowPrint;
 
   // estados
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [tab, setTab] = useState(0);
 
   // dialogs
   const [dialogOpen, setDialogOpen] = useState(false);               // update step
@@ -56,7 +64,6 @@ export default function InvoiceBasePage(props) {
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);       // logs
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);   // close confirm
   const [nfDetailDialogOpen, setNfDetailDialogOpen] = useState(false); // NF SAAM details
-  const [conferenciaDialogOpen, setConferenciaDialogOpen] = useState(false); // contagem items
 
   // selected / payload
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -75,15 +82,14 @@ export default function InvoiceBasePage(props) {
   const [newAction, setNewAction] = useState('');
   const [newUser, setNewUser] = useState('');
 
-  // logs / conferencia states
+  // logs states
   const [logs, setLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
-  const [nfDetail, setNfDetail] = useState(null);
+  const [nfSaam, setNfSaam] = useState(null);
+  const [nfErp, setNfErp] = useState([]);
+  const [nfCount, setNfCount] = useState(null);   //  🔥 NOVO
   const [nfDetailLoading, setNfDetailLoading] = useState(false);
-
-  const [conferenciaItems, setConferenciaItems] = useState([]);
-  const [conferenciaLoading, setConferenciaLoading] = useState(false);
 
   const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
   const showAlert = (msg, severity = 'success') => setAlert({ open: true, message: msg, severity });
@@ -99,7 +105,6 @@ export default function InvoiceBasePage(props) {
     if (hasTotalItems) return arr.reduce((s, i) => s + (i.total_items || 0), 0);
     return arr.length;
   };
-
   // ================= LOAD INVOICES (por step atual) =================
   const loadInvoices = async () => {
     if (!token || !step) return;
@@ -157,7 +162,6 @@ export default function InvoiceBasePage(props) {
   }, [token, steps, refresh]);
 
   // ================= HELPERS - transições válidas =================
-  // agora garantimos que só retornamos chaves que representam transições (objetos com label)
   const possibleToSteps = () =>
     Object.keys(config).filter((k) => typeof config[k] === 'object' && !!config[k]?.label);
 
@@ -248,17 +252,24 @@ export default function InvoiceBasePage(props) {
   const handleOpenNFDetails = async (invoiceKeyParam) => {
     setNfDetailDialogOpen(true);
     setNfDetailLoading(true);
-    setNfDetail(null);
+    setNfSaam(null);
+    setNfCount(null);
+    setNfErp([]);
+
     try {
       const resp = await axios.get(`${API_URL}/contabil/nf/saam/${invoiceKeyParam}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (Array.isArray(resp.data) && resp.data.length > 0) {
-        setNfDetail(resp.data[0]);
+
+      if (resp.data) {
+        setNfSaam(resp.data.saam.nf || null);
+        setNfErp(resp.data.erp.nf || null);
+        setNfCount(resp.data.count?.count || null);
       } else {
-        showAlert('NF não encontrada no SAAM.', 'warning');
+        showAlert('NF não encontrada.', 'warning');
         setNfDetailDialogOpen(false);
       }
+
     } catch (err) {
       console.error(err);
       showAlert('Erro ao buscar dados da NF.', 'error');
@@ -268,22 +279,26 @@ export default function InvoiceBasePage(props) {
     }
   };
 
-  // ================= CONFERÊNCIA / CONTAGEM (novo endpoint) =================
-  const openConferencia = async (hash) => {
-    setConferenciaDialogOpen(true);
-    setConferenciaLoading(true);
-    setConferenciaItems([]);
+
+  // ================= START COUNT (pela tela de steps) =================
+  const startCount = async (invoiceId) => {
+    if (!token) return;
     try {
-      const resp = await axios.get(`${API_URL}/contabil/nf/conferencia/${encodeURIComponent(hash)}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      // chama o backend para criar step + contagem
+      const resp = await axios.post(`${API_URL}/contabil/nf/${invoiceId}/contagem`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      setConferenciaItems(Array.isArray(resp.data) ? resp.data : []);
+
+      // espera retorno com count_id e step_id
+      const countId = resp.data?.data?.count_id;
+
+      // redireciona para a página de contagem dedicada
+      navigate(`/estoque/contagem/${invoiceId}`);
     } catch (err) {
-      console.error('Erro ao carregar items de conferência:', err);
-      showAlert('Erro ao carregar items de conferência.', 'error');
-      setConferenciaDialogOpen(false);
-    } finally {
-      setConferenciaLoading(false);
+      navigate(`/estoque/contagem/${invoiceId}`);
+      console.error('Erro ao iniciar contagem:', err);
+      const msg = err?.response?.data?.error || 'Erro ao iniciar contagem.';
+      showAlert(msg, 'error');
     }
   };
 
@@ -316,7 +331,6 @@ export default function InvoiceBasePage(props) {
   return (
     <Box sx={{ maxWidth: 1300, mx: 'auto', mt: 2 }}>
 
-
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
         {title}
       </Typography>
@@ -335,7 +349,6 @@ export default function InvoiceBasePage(props) {
         {allowCreate && (
           <Button variant="outlined" color="primary" onClick={() => setCreateDialogOpen(true)}>Nova NF</Button>
         )}
-
 
       </Paper>
 
@@ -370,8 +383,9 @@ export default function InvoiceBasePage(props) {
                     {allowInvoice && <Button size="small" variant="outlined" sx={{ mr: 1 }} onClick={() => handleOpenNFDetails(inv.invoice_key)}>NF</Button>}
                     {allowLogs && <Button size="small" variant="outlined" sx={{ mr: 1 }} onClick={() => openLogsDialog(inv)}>Logs</Button>}
                     {allowUpdate && <Button size="small" variant="contained" sx={{ mr: 1 }} onClick={() => openUpdate(inv)}>Atualizar</Button>}
-                    {allowCount && <Button size="small" sx={{ mr: 1 }} onClick={() => openConferencia(inv.invoice_key)}>Contagem</Button>}
+                    {allowCount && <Button size="small" variant="contained" color="secondary" sx={{ mr: 1 }} onClick={() => startCount(inv.id)}>Iniciar Contagem</Button>}
                     {allowClose && <Button size="small" color="error" variant="outlined" onClick={() => openConfirmClose(inv)}>Fechar</Button>}
+                    {allowPrint && <InvoicePrint nfSaam={nfSaam} items={nfErp?.itens || []} mode="fiscal" />}
                   </TableCell>
                 </TableRow>
               ))}
@@ -499,130 +513,194 @@ export default function InvoiceBasePage(props) {
         <DialogActions><Button onClick={() => setLogsDialogOpen(false)}>Fechar</Button></DialogActions>
       </Dialog>
 
-      {/* --- Conferência Dialog (contagem por invoice) --- */}
-      <Dialog open={conferenciaDialogOpen} onClose={() => setConferenciaDialogOpen(false)} fullWidth maxWidth="lg">
-        <DialogTitle>Conferência / Contagem</DialogTitle>
-        <DialogContent dividers>
-          {conferenciaLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}><CircularProgress /></Box>
-          ) : conferenciaItems.length ? (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Item</TableCell><TableCell>Descrição</TableCell><TableCell align="right">Qtde NF</TableCell><TableCell align="right">Qtde Contada</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {conferenciaItems.map((it, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{it.item || idx + 1}</TableCell>
-                    <TableCell>{it.descricao}</TableCell>
-                    <TableCell align="right">{it.qtde ?? it.quantity ?? '-'}</TableCell>
-                    <TableCell align="right">{it.counted_quantity ?? '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : <Alert severity="info">Nenhum item de conferência.</Alert>}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConferenciaDialogOpen(false)}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
-
       {/* --- NF Detail Dialog --- */}
       <Dialog
         open={nfDetailDialogOpen}
         onClose={() => setNfDetailDialogOpen(false)}
         fullWidth
-        maxWidth="md"
+        maxWidth="lg"
       >
         <DialogTitle>Detalhes da NF</DialogTitle>
+
         <DialogContent dividers>
 
           {nfDetailLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
               <CircularProgress />
             </Box>
-          ) : nfDetail ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Table size="small">
-                <TableBody>
-
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, width: 120 }}>Emitente</TableCell>
-                    <TableCell>{nfDetail.nome_emitente}</TableCell>
-
-                    <TableCell sx={{ fontWeight: 700, width: 120 }}>CNPJ</TableCell>
-                    <TableCell>{nfDetail.cnpj_emitente}</TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Nº Nota</TableCell>
-                    <TableCell>{nfDetail.numero_nota}</TableCell>
-
-                    <TableCell sx={{ fontWeight: 700 }}>Data</TableCell>
-                    <TableCell>{new Date(nfDetail.data_emissao).toLocaleDateString('pt-BR')}</TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                    <TableCell>{nfDetail.status}</TableCell>
-
-                    <TableCell sx={{ fontWeight: 700 }}>Natureza</TableCell>
-                    <TableCell>{nfDetail.natureza_operacao}</TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Observação</TableCell>
-                    <TableCell colSpan={3} style={{ whiteSpace: 'pre-wrap' }}>
-                      {nfDetail.observacao}
-                    </TableCell>
-                  </TableRow>
-
-                </TableBody>
-              </Table>
-
-
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Descrição</TableCell>
-                    <TableCell>NCM</TableCell>
-                    <TableCell>CFOP</TableCell>
-                    <TableCell>Un</TableCell>
-                    <TableCell align="right">Qtde</TableCell>
-                    <TableCell align="right">Vlr Unit</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {nfDetail.itens?.map((it, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{it.item}</TableCell>
-                      <TableCell>{it.descricao}</TableCell>
-                      <TableCell>{it.ncm}</TableCell>
-                      <TableCell>{it.cfop}</TableCell>
-                      <TableCell>{it.unidade}</TableCell>
-                      <TableCell align="right">{it.qtde}</TableCell>
-                      <TableCell align="right">{it.valor_unit}</TableCell>
-                      <TableCell align="right">{it.total}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-            </Box>
           ) : (
-            <Alert severity="info">Nenhum detalhe encontrado.</Alert>
+            <>
+              {/* Abas */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                <Tabs value={tab} onChange={(e, v) => setTab(v)}>
+                  <Tab label="SAAM" />
+                  <Tab label="ERP" />
+                  <Tab label="Contagem" />   {/* 🔥 NOVA ABA */}
+                </Tabs>
+
+              </Box>
+
+              {/* =======================================================
+            SAAM
+        ======================================================== */}
+              {tab === 0 && nfSaam && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography><b>Emitente:</b> {nfSaam.nome_emitente}</Typography>
+                    <Typography><b>CNPJ:</b> {nfSaam.cnpj_emitente}</Typography>
+                    <Typography><b>Nº Nota:</b> {nfSaam.numero_nota}</Typography>
+                    <Typography><b>Data Emissão:</b> {new Date(nfSaam.data_emissao).toLocaleDateString('pt-BR')}</Typography>
+                    <Typography><b>Status:</b> {nfSaam.status}</Typography>
+                    <Typography><b>Natureza:</b> {nfSaam.natureza_operacao}</Typography>
+                    <Typography><b>Observação:</b> {nfSaam.observacao}</Typography>
+                  </Paper>
+
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item</TableCell>
+                        <TableCell>Descrição</TableCell>
+                        <TableCell>NCM</TableCell>
+                        <TableCell>CFOP</TableCell>
+                        <TableCell>Un</TableCell>
+                        <TableCell align="right">Qtd</TableCell>
+                        <TableCell align="right">Vlr Unit</TableCell>
+                        <TableCell align="right">Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {nfSaam.itens?.map((it, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{it.item}</TableCell>
+                          <TableCell>{it.descricao}</TableCell>
+                          <TableCell>{it.ncm}</TableCell>
+                          <TableCell>{it.cfop}</TableCell>
+                          <TableCell>{it.unidade}</TableCell>
+                          <TableCell align="right">{it.qtde}</TableCell>
+                          <TableCell align="right">{it.valor_unit}</TableCell>
+                          <TableCell align="right">{it.total}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {/* =======================================================
+            ERP – agora tratado como OBJETO e não como ARRAY
+        ======================================================== */}
+              {tab === 1 && nfErp && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography><b>Filial:</b> {nfErp.filial}</Typography>
+                    <Typography><b>Número:</b> {nfErp.numero}</Typography>
+                    <Typography><b>Fornecedor:</b> {nfErp.fornecedor}</Typography>
+                    <Typography><b>Série:</b> {nfErp.serie}</Typography>
+                    <Typography><b>Data Emissão:</b> {nfErp.data_emissao}</Typography>
+                    <Typography><b>Status:</b> {nfErp.status_nf}</Typography>
+                  </Paper>
+
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item</TableCell>
+                        <TableCell>Produto</TableCell>
+                        <TableCell>Descrição</TableCell>
+                        <TableCell>UN</TableCell>
+                        <TableCell align="right">Qtd</TableCell>
+                        <TableCell align="right">Vlr Unit</TableCell>
+                        <TableCell align="right">Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+
+                    <TableBody>
+                      {nfErp.itens?.map((it, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{it.item}</TableCell>
+                          <TableCell>{it.produto}</TableCell>
+                          <TableCell>{it.produto_desc}</TableCell>
+                          <TableCell>{it.unide_medida}</TableCell>
+                          <TableCell align="right">{it.qtde}</TableCell>
+                          <TableCell align="right">{it.valor}</TableCell>
+                          <TableCell align="right">{it.total}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {/* =======================================================
+    ABA 3 – CONTAGEM
+======================================================= */}
+              {/* =======================================================
+    ABA 3 – CONTAGEM
+======================================================= */}
+              {tab === 2 && nfCount && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+                  {/* INFORMAÇÕES DA CONTAGEM */}
+                  <Paper sx={{ p: 2 }}>
+                    <Typography><b>ID Contagem:</b> {nfCount.id}</Typography>
+                    <Typography><b>Status:</b> {nfCount.status}</Typography>
+
+                    <Typography>
+                      <b>Divergência:</b>{" "}
+                      {nfCount.matched ? "Sem divergências" : "Com divergências"}
+                    </Typography>
+
+                    <Typography>
+                      <b>Início:</b> {new Date(nfCount.created_at).toLocaleString("pt-BR")}
+                    </Typography>
+
+                    <Typography>
+                      <b>Fim:</b> {new Date(nfCount.updated_at).toLocaleString("pt-BR")}
+                    </Typography>
+                  </Paper>
+
+                  {/* TABELA DE ITENS CONTADOS */}
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item</TableCell>
+                        <TableCell>Descrição</TableCell>
+                        <TableCell>Código</TableCell>
+                        <TableCell>Qtd Contada</TableCell>
+                        <TableCell>OK?</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {nfCount.itens?.map((it, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{it.item_number}</TableCell>
+                          <TableCell>{it.description}</TableCell>
+                          <TableCell>{it.codigo}</TableCell>
+                          <TableCell>{it.qty_counted}</TableCell>
+                          <TableCell
+                            style={{ color: it.is_matched ? "green" : "red", fontWeight: "bold" }}
+                          >
+                            {it.is_matched ? "✔" : "✘"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                </Box>
+              )}
+
+
+            </>
           )}
 
         </DialogContent>
+
         <DialogActions>
           <Button onClick={() => setNfDetailDialogOpen(false)}>Fechar</Button>
         </DialogActions>
       </Dialog>
+
+
 
       {/* --- Confirm Close --- */}
       <Dialog open={confirmCloseOpen} onClose={() => setConfirmCloseOpen(false)}>
