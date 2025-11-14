@@ -819,7 +819,6 @@ module.exports = {
             }
         }
 
-        console.log(count, matched)
 
         // atualizar contagem
         const update = await db.query(`
