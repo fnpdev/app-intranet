@@ -8,6 +8,28 @@ import { materialPalette } from '../../../utils/materialPalette';
 
 const REACT_APP_LINK = process.env.REACT_APP_LINK;
 
+// 🔹 Função para formatar datas YYYYMMDD → DD/MM/YYYY
+const formatarData = (valor) => {
+  if (!valor) return valor;
+  const str = valor.toString().trim();
+  if (!/^\d{8}$/.test(str)) return valor; // não é formato esperado
+  const ano = str.substring(0, 4);
+  const mes = str.substring(4, 6);
+  const dia = str.substring(6, 8);
+  return `${dia}/${mes}/${ano}`;
+};
+
+// 🔹 Função para formatar valores numéricos
+const formatarValor = (valor) => {
+  if (valor === null || valor === undefined) return valor;
+  const numero = Number(valor);
+  if (isNaN(numero)) return valor;
+  return numero.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+};
+
 export default function TabelaAtributos({ dados }) {
   if (!dados || dados.length === 0) return (
     <Typography sx={{ mt: 2, ml: 2, color: '#999' }}>
@@ -15,16 +37,13 @@ export default function TabelaAtributos({ dados }) {
     </Typography>
   );
 
-  // Verifica se existe algum "cor_status" para mostrar a coluna do círculo
   const temCorFundo = dados.some(item => item.cor_status);
 
-  // Remove atributos de link e cor_status das colunas visíveis
   const todasColunas = Object.keys(dados[0]);
   const colunas = todasColunas.filter(
     col => !col.toLowerCase().startsWith('link_') && col !== 'cor_status'
   );
 
-  // Função para abrir link em nova aba
   const handleLinkClick = (url) => {
     if (url && url.toString().trim()) {
       const finalUrl = `${REACT_APP_LINK}${url}`;
@@ -32,17 +51,22 @@ export default function TabelaAtributos({ dados }) {
     }
   };
 
-  // Função para extrair "cor_status" do formato "red[900]"
   const getPaletteColor = (corFundo) => {
     if (!corFundo) return undefined;
-    // Aceita formatos tipo "red[900]" ou "blue[A200]"
     const match = corFundo.match(/^([a-zA-Z]+)\[(\w+)\]$/);
     if (match) {
       const cor = match[1];
       const tonalidade = match[2];
       return materialPalette[cor]?.[tonalidade];
     }
-    return corFundo; // se não bater formato, retorna o que veio
+    return corFundo;
+  };
+
+  // 🔹 Formatar valores dinamicamente
+  const formatarValorColuna = (col, valor) => {
+    if (col.startsWith('data_')) return formatarData(valor);
+    if (col.startsWith('valor_')) return formatarValor(valor);
+    return valor;
   };
 
   return (
@@ -68,10 +92,10 @@ export default function TabelaAtributos({ dados }) {
           ))}
         </TableRow>
       </TableHead>
+
       <TableBody>
         {dados.map((linha, idx) => (
           <TableRow key={idx} hover>
-            {/* Circulo colorido se existir cor_status */}
             {temCorFundo &&
               <TableCell align="center">
                 {'cor_status' in linha && linha.cor_status ?
@@ -88,9 +112,11 @@ export default function TabelaAtributos({ dados }) {
                 }
               </TableCell>
             }
+
             {colunas.map((col) => {
               const linkKey = `link_${col}`;
               const link = linha[linkKey];
+
               return (
                 <TableCell
                   key={col}
@@ -100,7 +126,9 @@ export default function TabelaAtributos({ dados }) {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  {linha[col]}
+                  {/* 🔹 Aplicação da formatação dinâmica */}
+                  {formatarValorColuna(col, linha[col])}
+
                   {!!link && (
                     <IconButton
                       size="small"

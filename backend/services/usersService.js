@@ -186,7 +186,8 @@ async function getUserMe(username) {
           'withLayout', p.with_layout,
           'component', p.component,
           'pathIgnore', p.path_ignore,
-          'params', p.params
+          'params', p.params,
+          'menu', p.menu
         )
       ) AS pages
     FROM intranet_users u
