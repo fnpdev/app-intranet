@@ -1,40 +1,46 @@
-// frontend/src/modules/accounting/pages/InvoiceFiscalPage.js
-import React, { useState } from "react";
+// frontend/src/modules/accounting/pages/InvoiceEstoquePage.js
+
+import React, { useMemo, useState } from "react";
 import InvoiceBasePage from "./InvoiceBasePage";
 
-const ACTIONS_BY_TRANSITION = {
-  
-  estoque: {
-    allowCreate: false,
-    allowUpdate: true,
-    allowClose: false,
-    allowLogs: true,
-    allowCount: true,
-    allowInvoice: false,
-    allowPrint: false,
-    fiscal: {
-      label: "Fiscal",
-      action: [
-        { value: "Contagem", label: "Realizado Contagem", default: true }
-      ]
-    }
-  }
-};
+export default function InvoiceEstoquePage({ params = [] }) {
 
-// Steps permitidos pelo módulo fiscal (a Base renderiza abas)
-const STEPS = Object.keys(ACTIONS_BY_TRANSITION);
+  // =====================================================
+  // 🔥 CONVERTE ARRAY DE STEPS → MAPA (para a base)
+  // =====================================================
+  const actionsByTransition = useMemo(() => {
+    if (!Array.isArray(params)) return {};
 
-export default function InvoiceFiscalPage() {
-  // inicializa com o primeiro step disponível (portaria)
-  const [currentStep, setCurrentStep] = useState(STEPS[0]);
+    const map = {};
+    params.forEach(stepObj => {
+      map[stepObj.step] = stepObj;
+    });
+    return map;
+  }, [params]);
+
+  // =====================================================
+  // 🔥 ORDENA STEPS PELO CAMPO "order"
+  // =====================================================
+  const steps = useMemo(() => {
+    if (!Array.isArray(params)) return [];
+    return params
+      .slice()
+      .sort((a, b) => (a.order || 999) - (b.order || 999))
+      .map(s => s.step);
+  }, [params]);
+
+  // =====================================================
+  // 🔥 DEFINE O STEP INICIAL (sempre o primeiro da ordem)
+  // =====================================================
+  const [currentStep, setCurrentStep] = useState(steps[0] || null);
 
   return (
     <InvoiceBasePage
-      title="NF - Estoque"
-      steps={STEPS}
-      step={currentStep}           // step atual enviado para a base
-      setStep={setCurrentStep}     // permite trocar abas a partir da base
-      actionsByTransition={ACTIONS_BY_TRANSITION}
+      title="Entrada NF Estoque"
+      steps={steps}
+      step={currentStep}
+      setStep={setCurrentStep}
+      actionsByTransition={params}  // <--- IMPORTANTE: MANTER ARRAY (novo formato)
     />
   );
 }

@@ -1,42 +1,46 @@
 // frontend/src/modules/accounting/pages/InvoiceFiscalPage.js
-import React, { useState } from "react";
+
+import React, { useMemo, useState } from "react";
 import InvoiceBasePage from "./InvoiceBasePage";
 
-const ACTIONS_BY_TRANSITION = {
+export default function InvoiceSuprimentosPage({ params = [] }) {
 
-  suprimento: {
-    allowCreate: false,
-    allowUpdate: true,
-    allowClose: false,
-    allowLogs: true,
-    allowCount: false,
-    allowInvoice: false,
-    allowPrint: false,
+  // =====================================================
+  // 🔥 CONVERTE ARRAY DE STEPS → MAPA (para a base)
+  // =====================================================
+  const actionsByTransition = useMemo(() => {
+    if (!Array.isArray(params)) return {};
 
-    fiscal: {
-      label: "Fiscal",
-      action: [
-        { value: "Contagem", label: "PC Corrigido", default: true },
-        { value: "Recusa", label: "Recusa de NF", default: true }
-      ]
-    }
-  }
-};
+    const map = {};
+    params.forEach(stepObj => {
+      map[stepObj.step] = stepObj;
+    });
+    return map;
+  }, [params]);
 
-// Steps permitidos pelo módulo fiscal (a Base renderiza abas)
-const STEPS = Object.keys(ACTIONS_BY_TRANSITION);
+  // =====================================================
+  // 🔥 ORDENA STEPS PELO CAMPO "order"
+  // =====================================================
+  const steps = useMemo(() => {
+    if (!Array.isArray(params)) return [];
+    return params
+      .slice()
+      .sort((a, b) => (a.order || 999) - (b.order || 999))
+      .map(s => s.step);
+  }, [params]);
 
-export default function InvoiceFiscalPage() {
-  // inicializa com o primeiro step disponível (portaria)
-  const [currentStep, setCurrentStep] = useState(STEPS[0]);
+  // =====================================================
+  // 🔥 DEFINE O STEP INICIAL (sempre o primeiro da ordem)
+  // =====================================================
+  const [currentStep, setCurrentStep] = useState(steps[0] || null);
 
   return (
     <InvoiceBasePage
-      title="NF - Suprimentos"
-      steps={STEPS}
-      step={currentStep}           // step atual enviado para a base
-      setStep={setCurrentStep}     // permite trocar abas a partir da base
-      actionsByTransition={ACTIONS_BY_TRANSITION}
+      title="Entrada NF Suprimentos"
+      steps={steps}
+      step={currentStep}
+      setStep={setCurrentStep}
+      actionsByTransition={params}  // <--- IMPORTANTE: MANTER ARRAY (novo formato)
     />
   );
 }

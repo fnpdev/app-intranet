@@ -23,6 +23,7 @@ export default function DynamicRoutes({ modules = [] }) {
                     <PageComponent
                       moduleKey={module.module_key}
                       pageKey={page.key}
+                       params={page.params ?? {}}
                     />
                   </ModuleRoute>
                 }

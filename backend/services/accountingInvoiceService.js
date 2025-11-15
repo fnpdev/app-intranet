@@ -72,8 +72,9 @@ module.exports = {
         `;
         const { rows: existing } = await db.query(checkSql, [invoice_key]);
         if (existing.length > 0) {
-            return existing[0];
+            throw new Error('NF já classificada.');
         }
+             
 
         // 🧾 2. Cria o novo registro
         const insert = `
