@@ -4,6 +4,8 @@ import axios from 'axios';
 import {
   Box, TextField, Button, Paper, CircularProgress, Alert, Typography
 } from '@mui/material';
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import { useAuth } from '../../../context/AuthContext';
 import DynamicResumo from '../components/DynamicResumo';
 import DynamicAbas from '../components/DynamicAbas';
@@ -257,6 +259,49 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
     printWindow.print();
   };
 
+  const exportarExcel = () => {
+    if (!dados || !config) {
+      alert("Nenhum dado disponível para exportação.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    // -------------------------
+    // 1️⃣ Aba RESUMO (query is_main)
+    // -------------------------
+    const mainQuery = config?.queries?.find(q => q.is_main);
+    const mainData = mainQuery ? (dados[mainQuery.key] || []) : [];
+
+    if (mainData.length > 0) {
+      const sheetResumo = XLSX.utils.json_to_sheet(mainData);
+      XLSX.utils.book_append_sheet(workbook, sheetResumo, "Resumo");
+    }
+
+    // -------------------------
+    // 2️⃣ Demais abas
+    // -------------------------
+    const otherQueries = config?.queries?.filter(q => !q.is_main) || [];
+
+    otherQueries.forEach(q => {
+      const rows = dados[q.key] || [];
+      if (rows.length > 0) {
+        const sheet = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(workbook, sheet, q.key.substring(0, 31));
+        // Excel permite no máximo 31 caracteres de nome
+      }
+    });
+
+    // -------------------------
+    // 3️⃣ Gerar arquivo
+    // -------------------------
+    const nomeArquivo = `consulta-${pageKey}-${varBusca || "resultado"}.xlsx`;
+
+    const wbout = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    saveAs(new Blob([wbout], { type: "application/octet-stream" }), nomeArquivo);
+  };
+
+
   // =========================================================
   // 🧩 Queries principais
   // =========================================================
@@ -308,6 +353,10 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
           sx={{ minWidth: 110, fontWeight: 600 }}
         >
           Imprimir
+        </Button>
+
+        <Button variant="outlined" color="success" onClick={exportarExcel}>
+          Exportar Excel
         </Button>
       </Paper>
 
