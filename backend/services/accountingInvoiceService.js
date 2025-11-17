@@ -569,6 +569,7 @@ module.exports = {
             inv.last_count_step_id,
             cnt.status 	AS last_count_status,
             cnt.step_id,
+            inv.invoice_key,
             (SELECT MAX(id) AS last_step
                                     FROM accounting_invoice_steps
                                     WHERE invoice_id = inv.id

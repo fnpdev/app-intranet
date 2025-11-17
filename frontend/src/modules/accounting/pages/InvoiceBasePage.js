@@ -156,7 +156,7 @@ export default function InvoiceBasePage(props) {
     setFeedback('');
 
     try {
-      const resp = await axios.get(`${API_URL}/contabil/nf/step/${step}`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/step/${step}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -188,7 +188,7 @@ export default function InvoiceBasePage(props) {
 
     try {
       const promises = steps.map(s =>
-        axios.get(`${API_URL}/contabil/nf/step/${s}`, {
+        axios.get(`${API_URL}/api/contabil/nf/step/${s}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
           .then(r => ({ step: s, items: Array.isArray(r.data) ? r.data : [] }))
@@ -240,7 +240,7 @@ export default function InvoiceBasePage(props) {
 
     try {
       await axios.put(
-        `${API_URL}/contabil/nf/${selectedInvoice.id}/step`,
+        `${API_URL}/api/contabil/nf/${selectedInvoice.id}/step`,
         {
           user_id: user?.id,
           to_step: toStep,
@@ -274,7 +274,7 @@ export default function InvoiceBasePage(props) {
     if (!newInvoiceKey.trim()) return showAlert('Informe a chave.', 'warning');
 
     try {
-      await axios.post(`${API_URL}/contabil/nf`, {
+      await axios.post(`${API_URL}/api/contabil/nf`, {
         user_id: user?.id,
         invoice_key: newInvoiceKey.trim(),
         current_step: 'portaria',
@@ -313,7 +313,7 @@ export default function InvoiceBasePage(props) {
     setLogsDialogOpen(true);
 
     try {
-      const resp = await axios.get(`${API_URL}/contabil/nf/${inv.id}/logs`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/${inv.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -338,7 +338,7 @@ export default function InvoiceBasePage(props) {
     setNfCount(null);
 
     try {
-      const resp = await axios.get(`${API_URL}/contabil/nf/saam/${invKey}`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/saam/${invKey}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -359,7 +359,7 @@ export default function InvoiceBasePage(props) {
     try {
       setNfDetailLoading(true);
 
-      const resp = await axios.get(`${API_URL}/contabil/nf/saam/${inv.invoice_key}`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/saam/${inv.invoice_key}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -397,7 +397,7 @@ export default function InvoiceBasePage(props) {
   const startCount = async invoiceId => {
     try {
       await axios.post(
-        `${API_URL}/contabil/nf/${invoiceId}/contagem`,
+        `${API_URL}/api/contabil/nf/${invoiceId}/contagem`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -421,7 +421,7 @@ export default function InvoiceBasePage(props) {
 
   const confirmCloseInvoice = async () => {
     try {
-      await axios.put(`${API_URL}/contabil/nf/close/${invoiceToClose.id}`, {}, {
+      await axios.put(`${API_URL}/api/contabil/nf/close/${invoiceToClose.id}`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

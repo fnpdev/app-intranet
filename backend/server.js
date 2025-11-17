@@ -5,10 +5,24 @@ const app = express();
 const cors = require('cors');
 const { verifyToken } = require('./middlewares/authMiddleware');
 
+const allowedOrigins = process.env.API_CORS
+  ? process.env.API_CORS.split(',').map(origin => origin.trim())
+  : [];
+
+
+
 // Middlewares
 app.use(express.json());
+/*
 app.use(cors({
-  origin: ['127.0.0.1','http://localhost:3000', 'http://192.168.50.14:3000', 'http://intranet-dev.novapiratininga.com:3000'],
+  origin: [
+    'http://intranet-dev.novapiratininga.com:3000', 
+    'https://intranet.novapiratininga.com'],
+  credentials: true,
+}));
+*/
+app.use(cors({
+  origin: allowedOrigins,
   credentials: true,
 }));
 
@@ -20,7 +34,7 @@ app.use('/api/users',                 verifyToken,  require('./routes/usersRoute
 app.use('/api/variables',             verifyToken,  require('./routes/variablesRoutes'));
 app.use('/api/modules',               verifyToken,  require('./routes/modulesRoutes'));
 app.use('/api/pages',                 verifyToken,  require('./routes/pagesRoutes'));
-app.use('/contabil/nf',                verifyToken,  require('./routes/accountingInvoiceRoutes'));
+app.use('/api/contabil/nf',           verifyToken,  require('./routes/accountingInvoiceRoutes'));
 
 // 🔒 Rotas ERP (novas)
 

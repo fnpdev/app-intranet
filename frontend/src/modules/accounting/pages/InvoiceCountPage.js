@@ -46,7 +46,7 @@ export default function InvoiceCountPage() {
   // ============================================
   const loadInvoice = async () => {
     try {
-      const resp = await axios.get(`${API_URL}/contabil/nf/${invoiceId}`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -55,7 +55,7 @@ export default function InvoiceCountPage() {
 
       if (inv.current_step?.toLowerCase() !== 'estoque') {
         showAlert('A contagem só pode ser feita quando a NF estiver no step ESTOQUE.', 'warning');
-        navigate('/contabil/entrada-nf-fiscal');
+        navigate('/suprimentos/recebimento-fiscal');
         return false;
       }
 
@@ -63,7 +63,7 @@ export default function InvoiceCountPage() {
 
     } catch (err) {
       showAlert('Erro ao carregar NF.', 'error');
-      navigate('/contabil/entrada-nf-fiscal');
+      navigate('/suprimentos/recebimento-fiscal');
       return false;
     }
   };
@@ -77,7 +77,7 @@ export default function InvoiceCountPage() {
   const loadCount = async () => {
     setLoading(true);
     try {
-      const resp = await axios.get(`${API_URL}/contabil/nf/${invoiceId}/contagem`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}/contagem`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -109,7 +109,7 @@ export default function InvoiceCountPage() {
       if (!saamFinal && possibleKeys.length > 0) {
         try {
           const keyToTry = possibleKeys[0];
-          const respSaam = await axios.get(`${API_URL}/contabil/nf/saam/${encodeURIComponent(keyToTry)}`, {
+          const respSaam = await axios.get(`${API_URL}/api/contabil/nf/saam/${encodeURIComponent(keyToTry)}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           // tenta extrair a estrutura padrão do endpoint SAAM
@@ -129,7 +129,7 @@ export default function InvoiceCountPage() {
 
       if (!count) {
         showAlert('Contagem não iniciada.', 'warning');
-        navigate('/contabil/entrada-nf-fiscal');
+        navigate('/suprimentos/recebimento-fiscal');
         return;
       }
 
@@ -139,7 +139,7 @@ export default function InvoiceCountPage() {
     } catch (err) {
       console.error('Erro em loadCount():', err);
       showAlert('Erro ao carregar contagem.', 'error');
-      navigate('/contabil/entrada-nf-fiscal');
+      navigate('/suprimentos/recebimento-fiscal');
     } finally {
       setLoading(false);
     }
@@ -167,7 +167,7 @@ export default function InvoiceCountPage() {
     try {
       const promises = items.map(it =>
         axios.put(
-          `${API_URL}/contabil/nf/contagem/item/${it.id}`,
+          `${API_URL}/api/contabil/nf/contagem/item/${it.id}`,
           { qty_counted: it.qty_counted },
           { headers: { Authorization: `Bearer ${token}` } }
         )
@@ -194,7 +194,7 @@ export default function InvoiceCountPage() {
     handleSavePartial();
 
     try {
-      await axios.put(`${API_URL}/contabil/nf/contagem/${countInfo.id}/finalize`, {}, {
+      await axios.put(`${API_URL}/api/contabil/nf/contagem/${countInfo.id}/finalize`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -227,7 +227,7 @@ export default function InvoiceCountPage() {
     try {
       setLoading(true);
       // precisa do invoice.invoice_key para buscar SAAM
-      const inv = invoice || (await axios.get(`${API_URL}/contabil/nf/${invoiceId}`, { headers: { Authorization: `Bearer ${token}` } })).data;
+      const inv = invoice || (await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}`, { headers: { Authorization: `Bearer ${token}` } })).data;
       setInvoice(inv);
 
       const invKey = inv?.invoice_key || inv?.invoice_key_nf || null;
@@ -236,7 +236,7 @@ export default function InvoiceCountPage() {
         return;
       }
 
-      const resp = await axios.get(`${API_URL}/contabil/nf/saam/${encodeURIComponent(invKey)}`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/saam/${encodeURIComponent(invKey)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -254,7 +254,7 @@ export default function InvoiceCountPage() {
         // tenta obter itens da contagem (se endpoint diferente)
         // aqui assumimos que `items` atuais já são os itens de contagem
         // caso precise, descomente e ajuste a chamada abaixo:
-        // const countResp = await axios.get(`${API_URL}/contabil/nf/${invoiceId}/contagem`, { headers: { Authorization: `Bearer ${token}` } });
+        // const countResp = await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}/contagem`, { headers: { Authorization: `Bearer ${token}` } });
         // setItems(countResp.data?.itens || []);
       }
 

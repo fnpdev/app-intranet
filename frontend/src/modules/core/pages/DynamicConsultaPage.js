@@ -155,23 +155,23 @@ export default function DynamicConsultaPage({ moduleKey, pageKey }) {
     }
 
     const pathParts = location.pathname.split('/').filter(Boolean);
-    let newPath = '';
+    // pathParts = ["consulta", "sc-codigo"] ou ["consulta", "sc-codigo", "030738"]
 
-    // Encontra o índice do módulo, ex: 'consulta-sc'
-    const consultaIndex = pathParts.findIndex(p => p === pageKey);
+    // Sempre manter:
+    // pathParts[0] -> "consulta"
+    // pathParts[1] -> pagePath real ("sc-codigo")
 
-    if (consultaIndex !== -1) {
-      // Se já houver um ID após o pageKey, substitui
-      if (pathParts[consultaIndex + 1]) {
-        pathParts[consultaIndex + 1] = encodeURIComponent(varBusca);
-        newPath = '/' + pathParts.join('/');
-      } else {
-        // Caso contrário, adiciona o ID
-        newPath = '/' + [...pathParts, encodeURIComponent(varBusca)].join('/');
-      }
+    let newPath = "";
+
+    if (pathParts.length === 2) {
+      // Sem ID → adiciona ID
+      newPath = `/${pathParts[0]}/${pathParts[1]}/${encodeURIComponent(varBusca)}`;
+    } else if (pathParts.length >= 3) {
+      // Com ID → substitui ID
+      newPath = `/${pathParts[0]}/${pathParts[1]}/${encodeURIComponent(varBusca)}`;
     } else {
-      // fallback — adiciona o pageKey e o código
-      newPath = `/${pageKey}/${encodeURIComponent(varBusca)}`;
+      // fallback improvável
+      newPath = `/consulta/${pageKey}/${encodeURIComponent(varBusca)}`;
     }
 
     navigate(newPath);
