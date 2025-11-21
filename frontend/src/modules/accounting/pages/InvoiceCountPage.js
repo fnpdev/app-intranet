@@ -199,7 +199,7 @@ export default function InvoiceCountPage() {
       });
 
       showAlert('Contagem finalizada.');
-      navigate('/estoque/entrada-nf-estoque');
+      navigate('/suprimentos/recebimento-fiscal/');
 
     } catch {
       showAlert('Erro ao finalizar contagem.', 'error');
@@ -379,7 +379,7 @@ export default function InvoiceCountPage() {
           Imprimir
         </Button>
 
-        <Button variant="outlined" onClick={() => navigate('/estoque/entrada-nf-estoque')}>
+        <Button variant="outlined" onClick={() => navigate('/suprimentos/recebimento-fiscal/')}>
           Voltar
         </Button>
 
