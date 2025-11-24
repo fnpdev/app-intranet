@@ -55,7 +55,7 @@ export default function InvoiceCountPage() {
 
       if (inv.current_step?.toLowerCase() !== 'estoque') {
         showAlert('A contagem só pode ser feita quando a NF estiver no step ESTOQUE.', 'warning');
-        navigate('/suprimentos/recebimento-fiscal');
+        navigate('/estoque/recebimento-fiscal');
         return false;
       }
 
@@ -63,7 +63,7 @@ export default function InvoiceCountPage() {
 
     } catch (err) {
       showAlert('Erro ao carregar NF.', 'error');
-      navigate('/suprimentos/recebimento-fiscal');
+      navigate('/estoque/recebimento-fiscal');
       return false;
     }
   };
@@ -129,7 +129,7 @@ export default function InvoiceCountPage() {
 
       if (!count) {
         showAlert('Contagem não iniciada.', 'warning');
-        navigate('/suprimentos/recebimento-fiscal');
+        navigate('/estoque/recebimento-fiscal');
         return;
       }
 
@@ -139,7 +139,7 @@ export default function InvoiceCountPage() {
     } catch (err) {
       console.error('Erro em loadCount():', err);
       showAlert('Erro ao carregar contagem.', 'error');
-      navigate('/suprimentos/recebimento-fiscal');
+      navigate('/estoque/recebimento-fiscal');
     } finally {
       setLoading(false);
     }
@@ -199,7 +199,7 @@ export default function InvoiceCountPage() {
       });
 
       showAlert('Contagem finalizada.');
-      navigate('/suprimentos/recebimento-fiscal/');
+      navigate('/estoque/recebimento-fiscal/');
 
     } catch {
       showAlert('Erro ao finalizar contagem.', 'error');
@@ -379,7 +379,7 @@ export default function InvoiceCountPage() {
           Imprimir
         </Button>
 
-        <Button variant="outlined" onClick={() => navigate('/suprimentos/recebimento-fiscal/')}>
+        <Button variant="outlined" onClick={() => navigate('/estoque/recebimento-fiscal/')}>
           Voltar
         </Button>
 
