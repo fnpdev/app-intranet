@@ -439,13 +439,15 @@ module.exports = {
                         SD1.D1_TOTAL              AS total
                     FROM SD1010 SD1
                     LEFT JOIN SB1010 SB1 
-                        ON SB1.B1_FILIAL = LEFT(SD1.D1_FILIAL, 2)
-                        AND SB1.B1_COD = SD1.D1_COD
-                    WHERE SD1.D1_FORNECE = SF1.F1_FORNECE
-                    AND SD1.D1_LOJA = SF1.F1_LOJA
-                    AND SD1.D1_SERIE = SF1.F1_SERIE
-                    AND SD1.D1_DOC = SF1.F1_DOC
-                    FOR JSON PATH
+                      ON SB1.B1_FILIAL = LEFT(SD1.D1_FILIAL, 2)
+                     AND SB1.B1_COD = SD1.D1_COD
+                     AND SB1.D_E_L_E_T_ <> '*'
+                   WHERE SD1.D_E_L_E_T_ <> '*'
+                     AND SD1.D1_FORNECE = SF1.F1_FORNECE
+                     AND SD1.D1_LOJA = SF1.F1_LOJA
+                     AND SD1.D1_SERIE = SF1.F1_SERIE
+                     AND SD1.D1_DOC = SF1.F1_DOC
+                     FOR JSON PATH
                 ) AS itens
 
             FROM SF1010 SF1
