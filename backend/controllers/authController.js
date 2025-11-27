@@ -101,11 +101,16 @@ async function authController(req, res) {
     // =====================================================
     await authenticateAD(username, password);
 
+    const normalizedUsername = username.toLowerCase();
+    const formattedName = normalizedUsername
+      .split('.')                       // separa nome/sobrenome
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1)) // capitaliza
+      .join(' ');                       // junta com espaço
     // 🔹 Cria ou atualiza usuário no banco
     user = await usersService.findOrCreateUser({
-      username,
-      name: username,
-      email: `${username}@empresa.com`,
+      username: normalizedUsername,
+      name: formattedName,
+      email: `${normalizedUsername}@novapiratininga.com`,
       ad_account: true,
     });
 
