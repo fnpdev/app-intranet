@@ -278,8 +278,8 @@ module.exports = {
             // Build unified object
             result.push({
                 ...item,
-                saam_success: saam.rowsSAAM.success,
-                saam_nf: saam.rowsSAAM.nf ?? null
+                saam_success: saam.success,
+                saam_nf: saam.nf ?? null
             });
         }
 
@@ -318,7 +318,6 @@ module.exports = {
             }
         }
 
-
         return { success: rowsERP.true && rowsERP.success ? true : false, saam: rowsSAAM, erp: rowsERP };
     }, // 🔍 Get NF data from SAAM by key
     async getInfoNFSaamByKey(invoice_key) {
@@ -351,7 +350,7 @@ module.exports = {
         }
 
 
-        return { rowsSAAM };
+        return rowsSAAM;
     },
 
     // 🔍 Get NF data from SAAM by key
