@@ -63,7 +63,7 @@ module.exports = {
         return rows[0];
     },
     // ➕ Create new invoice receiving
-    async create({ user_id, invoice_key, current_step, message, note }) {
+    async create({ user_id, invoice_key, current_step, message, note, to_user_id }) {
         // 🧠 1. Verifica se a nota já existe
         const checkSql = `
             SELECT * FROM accounting_invoices
@@ -74,23 +74,23 @@ module.exports = {
         if (existing.length > 0) {
             throw new Error('NF já classificada.');
         }
-             
+
 
         // 🧾 2. Cria o novo registro
         const insert = `
-            INSERT INTO accounting_invoices (user_id, invoice_key, current_step, message, note, status)
-            VALUES ($1, $2, $3, $4, $5, 'OPEN')
+            INSERT INTO accounting_invoices (user_id, invoice_key, current_step, message, note, to_user_id, status)
+            VALUES ($1, $2, $3, $4, $5, $6, 'OPEN')
             RETURNING *
         `;
-        const { rows } = await db.query(insert, [user_id, invoice_key, current_step, message, note]);
+        const { rows } = await db.query(insert, [user_id, invoice_key, current_step, message, note, to_user_id]);
         const receiving = rows[0];
 
         // 🪵 3. Cria log inicial
         const logInsert = `
-            INSERT INTO accounting_invoice_steps (invoice_id, user_id, to_step, message, note, created_at)
-            VALUES ($1, $2, $3, $4, $5, NOW())
+            INSERT INTO accounting_invoice_steps (invoice_id, user_id, to_step, message, note, to_user_id, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
         `;
-        await db.query(logInsert, [receiving.id, user_id, receiving.current_step, receiving.message, receiving.note]);
+        await db.query(logInsert, [receiving.id, user_id, receiving.current_step, receiving.message, receiving.note, receiving.to_user_id]);
 
         return receiving;
     },
@@ -111,11 +111,11 @@ module.exports = {
         // 🔧 Atualiza registro principal
         const update = `
             UPDATE accounting_invoices
-            SET current_step = $1, message = $2, note = $3, updated_at = NOW()
-            WHERE id = $4 AND deleted_at IS NULL
+            SET current_step = $1, message = $2, note = $3, to_user_id = $4, updated_at = NOW()
+            WHERE id = $5 AND deleted_at IS NULL
             RETURNING *
         `;
-        const { rows } = await db.query(update, [to_step, message, note, id]);
+        const { rows } = await db.query(update, [to_step, message, note, to_user_id, id]);
         const updated = rows[0];
 
         // 🪵 Cria log da movimentação
@@ -243,36 +243,91 @@ module.exports = {
         const { rows } = await db.query(sql);
         return rows;
     },
-
-    // 🔍 List invoices by current step
     async listByStep(current_step) {
         const sql = `
-            SELECT 
-                r.*,
-                u.name AS user_name,
-                (
-                    SELECT COUNT(*) 
-                    FROM accounting_invoice_steps l 
-                    WHERE l.invoice_id = r.id AND l.deleted_at IS NULL
-                ) AS total_logs
-            FROM accounting_invoices r
-            LEFT JOIN intranet_users u ON u.id = r.user_id
-            WHERE r.current_step = $1
-              AND r.active = TRUE
-              AND r.deleted_at IS NULL
-              AND r.status = 'OPEN'
-            ORDER BY r.created_at DESC
-        `;
+        SELECT 
+            r.*,
+            ufrom.name AS user_name,
+            uto.name AS to_user_name,
+            (
+                SELECT COUNT(*) 
+                FROM accounting_invoice_steps l 
+                WHERE l.invoice_id = r.id AND l.deleted_at IS NULL
+            ) AS total_logs
+        FROM accounting_invoices r
+        LEFT JOIN intranet_users ufrom ON ufrom.id = r.user_id
+        LEFT JOIN intranet_users uto ON uto.id = r.to_user_id
+        WHERE r.current_step = $1
+          AND r.active = TRUE
+          AND r.deleted_at IS NULL
+          AND r.status = 'OPEN'
+        ORDER BY r.created_at DESC
+    `;
+
         const { rows } = await db.query(sql, [current_step]);
-        return rows;
+
+        // ================
+        // MERGE WITH SAAM
+        // ================
+        const result = [];
+
+        for (const item of rows) {
+            // Call SAAM by invoice_key
+            const saam = await this.getInfoNFSaamByKey(item.invoice_key);
+
+            // Build unified object
+            result.push({
+                ...item,
+                saam_success: saam.rowsSAAM.success,
+                saam_nf: saam.rowsSAAM.nf ?? null
+            });
+        }
+
+        return result;
     },
 
+
     // 🔍 Get NF data from SAAM by key
-    async getInfoNDByKey(invoice_key) {
+    async getInfoNFByKey(invoice_key) {
+
+
+        let rowsSAAM = await this.getInfoNFSaamByKey(invoice_key);
+
+
+        let rowsERP = {
+            success: false
+        }
+
+
+        if (rowsSAAM.success) {
+            // garantir que é string 
+            // 14429683000101
+            let cnpjFornecedor = String(rowsSAAM.nf.cnpj_emitente).padStart(14, "0");
+            let erpFornecedorCod = cnpjFornecedor.slice(0, 8).padStart(9, "0");
+            let erpFornecedorLoja = cnpjFornecedor.slice(8, 12);
+            let erpNumeroNota = String(rowsSAAM.nf.numero_nota).padStart(9, "0");
+            const resultSQL = await this.getNFERP(erpFornecedorCod, erpFornecedorLoja, erpNumeroNota)
+
+            if (resultSQL.success) {
+                rowsERP = {
+                    success: true,
+                    nf: parseErpItens(resultSQL.data)[0]
+                }
+                delete rowsERP.nf.itens
+
+            }
+        }
+
+
+        return { success: rowsERP.true && rowsERP.success ? true : false, saam: rowsSAAM, erp: rowsERP };
+    }, // 🔍 Get NF data from SAAM by key
+    async getInfoNFSaamByKey(invoice_key) {
         const sql = `
             SELECT 
                 nf.cnpj_emitente,
                 nf.nome_emitente,
+                nf.cnpj_destinatario,
+                nf.nome_destinatario,
                 nf.numero_nota,
                 nf.data_emissao,
                 nf.natureza_operacao,
@@ -288,36 +343,15 @@ module.exports = {
         let rowsSAAM = {
             success: false
         }
-        let rowsERP = {
-            success: false
-        }
-
-
         if (rows.length) {
             rowsSAAM = {
                 success: true,
                 nf: rows[0]
             }
-            // garantir que é string 
-            // 14429683000101
-            let cnpjFornecedor = String(rows[0].cnpj_emitente).padStart(14, "0");
-            let erpFornecedorCod = cnpjFornecedor.slice(0, 8).padStart(9, "0");
-            let erpFornecedorLoja = cnpjFornecedor.slice(8, 12);
-            let erpNumeroNota = String(rows[0].numero_nota).padStart(9, "0");
-            const resultSQL = await this.getNFERP(erpFornecedorCod, erpFornecedorLoja, erpNumeroNota)
-
-            if (resultSQL.success) {
-                rowsERP = {
-                    success: true,
-                    nf: parseErpItens(resultSQL.data)[0]
-                }
-                delete rowsERP.nf.itens
-
-            }
         }
 
 
-        return { success: rowsERP.true && rowsERP.success ? true : false, saam: rowsSAAM, erp: rowsERP };
+        return { rowsSAAM };
     },
 
     // 🔍 Get NF data from SAAM by key
@@ -337,6 +371,8 @@ module.exports = {
             SELECT 
                 nf.cnpj_emitente,
                 nf.nome_emitente,
+                nf.cnpj_destinatario,
+                nf.nome_destinatario,
                 nf.numero_nota,
                 nf.data_emissao,
                 nf.natureza_operacao,
@@ -360,6 +396,8 @@ module.exports = {
             group by 
                 nf.cnpj_emitente,
                 nf,nome_emitente,
+                nf.cnpj_destinatario,
+                nf.nome_destinatario,
                 nf.numero_nota,
                 nf.data_emissao,
                 nf.natureza_operacao,
@@ -555,8 +593,8 @@ module.exports = {
         WHERE count_id = $1
         ORDER BY item_number ASC
     `, [count_id]);
-        
-        return { ...count.rows[0], itens: items.rows  }
+
+        return { ...count.rows[0], itens: items.rows }
 
     },
 
@@ -610,7 +648,7 @@ module.exports = {
         const count = await this.getCountByStepId(row.step_active)
 
 
-        let infoNF = await this.getInfoNDByKey(row.invoice_key)
+        let infoNF = await this.getInfoNFByKey(row.invoice_key)
         return { ...count, nf: infoNF };
     },
 
