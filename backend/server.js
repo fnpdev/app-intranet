@@ -36,6 +36,11 @@ app.use('/api/modules',               verifyToken,  require('./routes/modulesRou
 app.use('/api/pages',                 verifyToken,  require('./routes/pagesRoutes'));
 app.use('/api/contabil/nf',           verifyToken,  require('./routes/accountingInvoiceRoutes'));
 
+
+app.use('/api/aprovacao',             verifyToken,  require('./routes/approvalRoutes'));
+app.use('/api/reallocation',          verifyToken,  require('./routes/costReallocationRoutes'));
+
+
 // 🔒 Rotas ERP (novas)
 
 // ==================== ERROR HANDLER ====================
