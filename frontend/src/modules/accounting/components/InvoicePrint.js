@@ -68,6 +68,7 @@ export default function InvoicePrint() {
                     <th>${isCount ? "Código" : "Produto"}</th>
                     <th>Descrição</th>
                     ${isCount ? "<th>Part Number</th>" : "<th>Código</th>"}
+                    ${isCount ? "<th>Unid. Medida</th>" : "<th>Unid. Medida</th>"}
                     <th>${isCount ? "Qtd Contada" : "Qtd NF"}</th>
                   </tr>
                 </thead>
@@ -77,12 +78,14 @@ export default function InvoicePrint() {
                     const codigo = isCount ? (it.codigo ?? "") : (it.produto ?? "");
                     const desc = isCount ? (it.description ?? "") : (it.produto_desc ?? "");
                     const part = it.ncm ?? "";
+                    const unide_medida = it.unidade ?? it.unide_medida;
                     const qtd = isCount ? (it.qty_counted ?? "") : "";
                     return `<tr>
                       <td>${itemIdx}</td>
                       <td>${codigo}</td>
                       <td>${escapeHtml(desc)}</td>
                       <td class="center">${part}</td>
+                      <td class="center">${unide_medida}</td>
                       <td class="center">${qtd}</td>
                     </tr>`;
                   }).join("")}
