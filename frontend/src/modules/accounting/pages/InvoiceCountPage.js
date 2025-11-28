@@ -344,6 +344,7 @@ export default function InvoiceCountPage() {
               <TableCell>Codigo</TableCell>
               <TableCell>Descrição</TableCell>
               <TableCell>Part Number</TableCell>
+              <TableCell>Unid. Medida</TableCell>
               <TableCell align="right">Qtd Contada</TableCell>
             </TableRow>
           </TableHead>
@@ -355,6 +356,7 @@ export default function InvoiceCountPage() {
                 <TableCell>{it.codigo}</TableCell>
                 <TableCell>{it.description}</TableCell>
                 <TableCell>{it.ncm}</TableCell>
+                <TableCell>{it.unidade}</TableCell>
                 <TableCell align="right">
                   <TextField
                     type="number"
