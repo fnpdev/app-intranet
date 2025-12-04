@@ -30,7 +30,7 @@ export default function InvoiceStepsTabs({
         '& .MuiTab-root': {
           fontWeight: 600,
           fontSize: '0.9rem',
-          minWidth: 140,
+          minWidth: 160,
           maxWidth: 200,
           textTransform: 'uppercase',
           textOverflow: 'ellipsis',
