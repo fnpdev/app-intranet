@@ -14,7 +14,7 @@ import {
   TableRow,
   TextField,
 } from '@mui/material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import AppAlert from '../../core/components/AppAlert';
@@ -25,6 +25,8 @@ const API_URL = process.env.REACT_APP_API_URL;
 export default function InvoiceCountPage() {
   const { id: invoiceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const previousPage = location.state?.from || '/'; // ← página anterior
   const { token } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -53,26 +55,18 @@ export default function InvoiceCountPage() {
       const inv = resp.data;
       setInvoice(inv);
 
-      if (inv.current_step?.toLowerCase() !== 'estoque') {
-        showAlert('A contagem só pode ser feita quando a NF estiver no step ESTOQUE.', 'warning');
-        navigate('/estoque/recebimento-fiscal');
-        return false;
-      }
-
+      // 🔥 Backend agora decide se pode contagem → frontend não bloqueia mais
       return true;
 
     } catch (err) {
       showAlert('Erro ao carregar NF.', 'error');
-      navigate('/estoque/recebimento-fiscal');
+      navigate(previousPage);
       return false;
     }
   };
 
   // ============================================
   // 2 - Carregar contagem
-  // ============================================
-  // ============================================
-  // 2 - Carregar contagem (VERSÃO ROBUSTA)
   // ============================================
   const loadCount = async () => {
     setLoading(true);
@@ -81,55 +75,14 @@ export default function InvoiceCountPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // DEBUG: inspecione a resposta no console se precisar
-      // (remova/ comente em produção)
-      console.debug('loadCount resp.data:', resp.data);
+      setNfSaam(resp.data?.nf?.saam?.nf || resp.data?.saam?.nf || null);
 
-      // 1) tenta vários caminhos comuns para o SAAM dentro da resposta da contagem
-      const saamFromPath1 = resp.data?.nf?.saam?.nf;   // { nf: { saam: { nf: {...} } } }
-      const saamFromPath2 = resp.data?.saam?.nf;      // { saam: { nf: {...} } }
-      const saamFromPath3 = resp.data?.saam;         // { saam: {...} }
-      const saamFromPath4 = resp.data?.nf?.saam;     // { nf: { saam: {...} } }
-      const saamFromPath5 = resp.data?.saam?.data || null; // variações
-      let saamFinal = saamFromPath1 || saamFromPath2 || saamFromPath3 || saamFromPath4 || saamFromPath5 || null;
-
-      // 2) Se não encontrou, tenta extrair invoice_key de vários lugares (count resp, invoice local, items)
-      const possibleKeys = [
-        invoice?.invoice_key,
-        invoice?.invoice_key_nf,
-        resp.data?.invoice_key,
-        resp.data?.nf?.invoice_key,
-        resp.data?.nf?.invoice_key_nf,
-        resp.data?.count?.invoice_key,
-        resp.data?.itens?.[0]?.invoice_key,
-        resp.data?.itens?.[0]?.chave // alguma variação
-      ].filter(Boolean);
-
-      // 3) Se ainda nada, tenta buscar o SAAM pelo endpoint específico usando a primeira chave encontrada
-      if (!saamFinal && possibleKeys.length > 0) {
-        try {
-          const keyToTry = possibleKeys[0];
-          const respSaam = await axios.get(`${API_URL}/api/contabil/nf/saam/${encodeURIComponent(keyToTry)}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          // tenta extrair a estrutura padrão do endpoint SAAM
-          saamFinal = respSaam.data?.saam?.nf || respSaam.data?.nf || respSaam.data || null;
-          console.debug('fetched SAAM via /saam/:key, key=', keyToTry, 'result=', saamFinal);
-        } catch (errSaam) {
-          console.debug('fallback SAAM fetch failed for keys:', possibleKeys, errSaam);
-        }
-      }
-
-      // 4) por fim, seta o state com o que conseguiu (pode ser null)
-      setNfSaam(saamFinal);
-
-      // itens e count (mantém como antes)
       const count = resp.data;
       const itens = resp.data?.itens || [];
 
       if (!count) {
         showAlert('Contagem não iniciada.', 'warning');
-        navigate('/estoque/recebimento-fiscal');
+        navigate(previousPage);
         return;
       }
 
@@ -139,7 +92,7 @@ export default function InvoiceCountPage() {
     } catch (err) {
       console.error('Erro em loadCount():', err);
       showAlert('Erro ao carregar contagem.', 'error');
-      navigate('/estoque/recebimento-fiscal');
+      navigate(previousPage);
     } finally {
       setLoading(false);
     }
@@ -165,14 +118,15 @@ export default function InvoiceCountPage() {
   const handleSavePartial = async () => {
     setSaving(true);
     try {
-      const promises = items.map(it =>
-        axios.put(
-          `${API_URL}/api/contabil/nf/contagem/item/${it.id}`,
-          { qty_counted: it.qty_counted },
-          { headers: { Authorization: `Bearer ${token}` } }
+      await Promise.all(
+        items.map(it =>
+          axios.put(
+            `${API_URL}/api/contabil/nf/contagem/item/${it.id}`,
+            { qty_counted: it.qty_counted },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
         )
       );
-      await Promise.all(promises);
 
       showAlert('Contagem salva parcialmente.');
       await loadCount();
@@ -185,21 +139,23 @@ export default function InvoiceCountPage() {
   };
 
   // ============================================
-  // Finalizar
+  // Finalizar Contagem
   // ============================================
   const handleFinalize = async () => {
     if (!countInfo) return;
     setFinalizing(true);
 
-    handleSavePartial();
-
     try {
-      await axios.put(`${API_URL}/api/contabil/nf/contagem/${countInfo.id}/finalize`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await handleSavePartial();
+
+      await axios.put(
+        `${API_URL}/api/contabil/nf/contagem/${countInfo.id}/finalize`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       showAlert('Contagem finalizada.');
-      navigate('/estoque/recebimento-fiscal/');
+      navigate(previousPage); // ← voltar para a página de origem
 
     } catch {
       showAlert('Erro ao finalizar contagem.', 'error');
@@ -209,11 +165,9 @@ export default function InvoiceCountPage() {
   };
 
   // ============================================
-  // 🔥 IMPRESSÃO (NOVO)
+  // Impressão
   // ============================================
-  // função robusta para acionar impressão na contagem
   const handlePrintCount = async () => {
-    // se já tiver os dados, só dispara
     if (nfSaam && items && items.length) {
       window.dispatchEvent(
         new CustomEvent("invoicePrint", {
@@ -223,58 +177,46 @@ export default function InvoiceCountPage() {
       return;
     }
 
-    // tenta carregar NF (fallback)
+    // fallback
     try {
       setLoading(true);
-      // precisa do invoice.invoice_key para buscar SAAM
-      const inv = invoice || (await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}`, { headers: { Authorization: `Bearer ${token}` } })).data;
-      setInvoice(inv);
 
-      const invKey = inv?.invoice_key || inv?.invoice_key_nf || null;
+      const inv =
+        invoice ||
+        (await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })).data;
+
+      const invKey = inv?.invoice_key || null;
+
       if (!invKey) {
         showAlert("Chave da NF não disponível para impressão.", "error");
         return;
       }
 
-      const resp = await axios.get(`${API_URL}/api/contabil/nf/saam/${encodeURIComponent(invKey)}`, {
+      const resp = await axios.get(`${API_URL}/api/contabil/nf/saam/${invKey}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       const saam = resp.data?.saam?.nf || null;
-      const erp = resp.data?.erp?.nf || null;
-
-      if (!saam) {
-        showAlert("Não foi possível carregar dados SAAM para impressão.", "error");
-        return;
-      }
-
-      // atualiza estados locais (útil para futuras ações)
       setNfSaam(saam);
-      if (!items || items.length === 0) {
-        // tenta obter itens da contagem (se endpoint diferente)
-        // aqui assumimos que `items` atuais já são os itens de contagem
-        // caso precise, descomente e ajuste a chamada abaixo:
-        // const countResp = await axios.get(`${API_URL}/api/contabil/nf/${invoiceId}/contagem`, { headers: { Authorization: `Bearer ${token}` } });
-        // setItems(countResp.data?.itens || []);
-      }
 
-      // finalmente dispara o evento com os dados corretos
       window.dispatchEvent(
         new CustomEvent("invoicePrint", {
-          detail: { nfSaam: saam, items: items.length ? items : (erp?.itens || []), mode: "count" },
+          detail: { nfSaam: saam, items, mode: "count" },
         })
       );
+
     } catch (err) {
-      console.error("Erro ao preparar impressão:", err);
+      console.error(err);
       showAlert("Erro ao preparar impressão.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-
   // ============================================
-  // RENDER
+  // Render
   // ============================================
   if (loading || !countInfo)
     return (
@@ -285,7 +227,6 @@ export default function InvoiceCountPage() {
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', mt: 3 }}>
-
       <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
         Contagem da NF #{invoiceId}
       </Typography>
@@ -307,9 +248,7 @@ export default function InvoiceCountPage() {
                 <TableCell sx={{ fontWeight: 700 }}>Nº Nota</TableCell>
                 <TableCell>{nfSaam.numero_nota}</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Data</TableCell>
-                <TableCell>
-                  {new Date(nfSaam.data_emissao).toLocaleDateString('pt-BR')}
-                </TableCell>
+                <TableCell>{new Date(nfSaam.data_emissao).toLocaleDateString('pt-BR')}</TableCell>
               </TableRow>
 
               <TableRow>
@@ -362,7 +301,12 @@ export default function InvoiceCountPage() {
                     type="number"
                     size="small"
                     value={it.qty_counted ?? ""}
-                    onChange={(e) => handleUpdateQty(it.id, e.target.value === "" ? null : Number(e.target.value))}
+                    onChange={(e) =>
+                      handleUpdateQty(
+                        it.id,
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
                     sx={{ width: 120 }}
                   />
                 </TableCell>
@@ -376,12 +320,11 @@ export default function InvoiceCountPage() {
       {/* BOTÕES */}
       <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
 
-        {/* 🔥 NOVO botão de impressão */}
         <Button variant="outlined" color="info" onClick={handlePrintCount}>
           Imprimir
         </Button>
 
-        <Button variant="outlined" onClick={() => navigate('/estoque/recebimento-fiscal/')}>
+        <Button variant="outlined" onClick={() => navigate(previousPage)}>
           Voltar
         </Button>
 
@@ -394,7 +337,6 @@ export default function InvoiceCountPage() {
         </Button>
       </Box>
 
-      {/* Serviço invisível que escuta o evento */}
       <InvoicePrint />
 
       <AppAlert

@@ -205,9 +205,9 @@ export default function InvoiceBasePage(props) {
     loadCounts();
   }, [token, steps, refresh]);
 
-// -------------------------------------------------------------
-// InvoiceBasePage.js – Versão B (Parte 2)
-// -------------------------------------------------------------
+  // -------------------------------------------------------------
+  // InvoiceBasePage.js – Versão B (Parte 2)
+  // -------------------------------------------------------------
 
   // ============================================================
   // HELPER: pegar campo aninhado (para sort e filter)
@@ -459,12 +459,19 @@ export default function InvoiceBasePage(props) {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      navigate(`/estoque/contagem/${id}`);
+
+      navigate(`/estoque/contagem/${id}`, {
+        state: { from: window.location.pathname }  // ← AQUI A CORREÇÃO
+      });
+
     } catch {
-      navigate(`/estoque/contagem/${id}`);
+      navigate(`/estoque/contagem/${id}`, {
+        state: { from: window.location.pathname }
+      });
       showAlert("Erro ao iniciar contagem.", "error");
     }
   };
+
 
   // CLOSE
   const openConfirmClose = (inv) => {
@@ -492,9 +499,9 @@ export default function InvoiceBasePage(props) {
       showAlert("Erro ao finalizar NF", "error");
     }
   };
-// -------------------------------------------------------------
-// InvoiceBasePage.js – Versão B (Parte 3 – FINAL)
-// -------------------------------------------------------------
+  // -------------------------------------------------------------
+  // InvoiceBasePage.js – Versão B (Parte 3 – FINAL)
+  // -------------------------------------------------------------
 
   // ============================================================
   // RENDER

@@ -1,6 +1,20 @@
 const db = require('../config/db_postgres');
 const db_saam = require('../config/db_postgres_saam');
 const dbSQL = require('./DBSQLServerService');
+const { getUserVarsObject } = require('../utils/userVariables');
+const { getLastDayOfMonth } = require("../utils/dateUtils");
+
+/**
+ * LISTA DE ETAPAS QUE PERMITEM CONTAGEM
+ * O backend valida a etapa atual da invoice.
+ */
+const STEPS_ALLOWED_TO_COUNT = [
+    "estoque",
+    "almoxarifado",
+    "insumo",
+    "gado",
+    "combustivel"
+];
 
 
 function parseErpItens(erpArray) {
@@ -243,48 +257,99 @@ module.exports = {
         const { rows } = await db.query(sql);
         return rows;
     },
-    async listByStep(current_step) {
-        const sql = `
-        SELECT 
-            r.*,
-            ufrom.name AS user_name,
-            uto.name AS to_user_name,
-            (
-                SELECT COUNT(*) 
-                FROM accounting_invoice_steps l 
-                WHERE l.invoice_id = r.id AND l.deleted_at IS NULL
-            ) AS total_logs
-        FROM accounting_invoices r
-        LEFT JOIN intranet_users ufrom ON ufrom.id = r.user_id
-        LEFT JOIN intranet_users uto ON uto.id = r.to_user_id
-        WHERE r.current_step = $1
-          AND r.active = TRUE
-          AND r.deleted_at IS NULL
-          AND r.status = 'OPEN'
-        ORDER BY r.created_at DESC
-    `;
+    async listByStep(current_step, user_id) {
 
-        const { rows } = await db.query(sql, [current_step]);
+        // 🔥 Carrega variáveis do usuário
+        const vars = await getUserVarsObject(user_id);
+        const competencia = vars.varCompetencia; // "202511"
+        const filial = vars.varFilial;           // "0102"
 
-        // ================
-        // MERGE WITH SAAM
-        // ================
+        // 📅 monta datas da competência
+        let dtInicio = '1900-01-01';
+        let dtFim = '3000-12-31';
+
+        if (competencia) {
+            const ano = competencia.substring(0, 4);
+            const mes = competencia.substring(4, 6);
+
+            dtInicio = `${ano}-${mes}-01`;
+            dtFim = getLastDayOfMonth(competencia);
+
+        }
+
+        // ======================= SQL ===========================
+        let sql = "";
+
+        if (current_step === 'finalizado') {
+
+            sql = `
+            SELECT 
+                r.*,
+                ufrom.name AS user_name,
+                uto.name AS to_user_name,
+                (
+                    SELECT COUNT(*) 
+                    FROM accounting_invoice_steps l 
+                    WHERE l.invoice_id = r.id AND l.deleted_at IS NULL
+                ) AS total_logs
+            FROM accounting_invoices r
+            LEFT JOIN intranet_users ufrom ON ufrom.id = r.user_id
+            LEFT JOIN intranet_users uto ON uto.id = r.to_user_id
+            WHERE r.status = 'CLOSED'
+              AND r.active = TRUE
+              AND r.deleted_at IS NULL
+              AND r.created_at BETWEEN $1 AND $2
+            ORDER BY r.updated_at DESC
+        `;
+
+            params = [dtInicio, dtFim];
+
+        } else {
+
+            sql = `
+            SELECT 
+                r.*,
+                ufrom.name AS user_name,
+                uto.name AS to_user_name,
+                (
+                    SELECT COUNT(*) 
+                    FROM accounting_invoice_steps l 
+                    WHERE l.invoice_id = r.id AND l.deleted_at IS NULL
+                ) AS total_logs
+            FROM accounting_invoices r
+            LEFT JOIN intranet_users ufrom ON ufrom.id = r.user_id
+            LEFT JOIN intranet_users uto ON uto.id = r.to_user_id
+            WHERE r.current_step = $1
+              AND r.active = TRUE
+              AND r.deleted_at IS NULL
+              AND r.status = 'OPEN'
+            ORDER BY r.created_at DESC
+        `;
+
+            params = [current_step];
+        }
+
+        const { rows } = await db.query(sql, params);
+
+        // ================ MERGE WITH SAAM =================
         const result = [];
 
         for (const item of rows) {
-            // Call SAAM by invoice_key
             const saam = await this.getInfoNFSaamByKey(item.invoice_key);
 
-            // Build unified object
             result.push({
                 ...item,
                 saam_success: saam.success,
-                saam_nf: saam.nf ?? null
+                saam_nf: saam.nf ?? null,
+                competencia_filtrada: competencia,
+                filial_filtrada: filial
             });
         }
 
         return result;
     },
+
+
 
 
     // 🔍 Get NF data from SAAM by key
@@ -656,45 +721,60 @@ module.exports = {
     * Só pode ser executado pela página de steps
     * Gera um novo step fiscal→estoque e uma nova contagem
     */
+    /**
+     * START COUNT
+     * Inicia uma nova contagem em qualquer etapa que esteja na lista de STEPS_ALLOWED_TO_COUNT
+     * Cria SEMPRE um novo step, mesmo repetido.
+     */
     async startCount(invoice_id, user_id) {
 
         const invRes = await db.query(`
-        SELECT 
-            inv.id,
-            inv.status, 
-            inv.active, 
-            inv.last_count_step_id,
-            steps.last_step,
-            inv.current_step,
-            cnt.status AS last_count_status,
-            inv.invoice_key as invoice_key
-        FROM accounting_invoices inv
-        LEFT JOIN (
-            SELECT invoice_id, MAX(id) AS last_step
-            FROM accounting_invoice_steps
-            WHERE deleted_at IS NULL
-            GROUP BY invoice_id
-        ) steps ON steps.invoice_id = inv.id
-        LEFT JOIN accounting_invoice_counts cnt
-            ON cnt.step_id = inv.last_count_step_id
-        WHERE inv.id = $1
-    `, [invoice_id]);
+            SELECT 
+                inv.id,
+                inv.status, 
+                inv.active, 
+                inv.last_count_step_id,
+                steps.last_step,
+                inv.current_step,
+                cnt.status AS last_count_status,
+                inv.invoice_key as invoice_key
+            FROM accounting_invoices inv
+            LEFT JOIN (
+                SELECT invoice_id, MAX(id) AS last_step
+                FROM accounting_invoice_steps
+                WHERE deleted_at IS NULL
+                GROUP BY invoice_id
+            ) steps ON steps.invoice_id = inv.id
+            LEFT JOIN accounting_invoice_counts cnt
+                ON cnt.step_id = inv.last_count_step_id
+            WHERE inv.id = $1
+        `, [invoice_id]);
 
-        if (!invRes.rows.length) throw new Error("Invoice not found");
+        if (!invRes.rows.length)
+            throw new Error("Invoice not found");
 
         const inv = invRes.rows[0];
 
-        // --- validações ---
+
+        // 1️⃣ Validar invoice
         if (!inv.active || inv.status === 'CLOSED')
             throw new Error("Invoice fechada.");
 
-        // step atual só pode iniciar contagem
-        if (inv.current_step.toUpperCase() !== 'ESTOQUE')
-            throw new Error("Para iniciar contagem, a NF deve estar no step ESTOQUE.");
 
-        // se houver contagem anterior, ela deve estar finalizada
+        // 2️⃣ Validar se a etapa atual permite contagem
+        const stepAtual = (inv.current_step || "").toLowerCase();
+
+        if (!STEPS_ALLOWED_TO_COUNT.includes(stepAtual)) {
+            throw new Error(
+                `A etapa '${inv.current_step}' não permite iniciar contagem.`
+            );
+        }
+
+
+        // 3️⃣ Se houver contagem anterior pendente → retornar ela
         const lastCountStatus = await db.query(`
-            SELECT status, id, step_id FROM accounting_invoice_counts
+            SELECT status, id, step_id 
+            FROM accounting_invoice_counts
             WHERE step_id = $1
             ORDER BY id DESC
             LIMIT 1
@@ -702,86 +782,88 @@ module.exports = {
 
         if (lastCountStatus.rows.length &&
             lastCountStatus.rows[0].status !== 'FINISHED') {
-            return { count_id: lastCountStatus.rows[0].id, step_id: lastCountStatus.rows[0].step_id };
+            return {
+                count_id: lastCountStatus.rows[0].id,
+                step_id: lastCountStatus.rows[0].step_id
+            };
         }
 
-        // --- cria novo step (estoque → estoque) ---
 
+        // 4️⃣ Criar novo step (permitindo repetição)
         const updateStep = await this.updateStep({
             id: invoice_id,
-            to_step: 'estoque',
+            to_step: stepAtual,               // etapa repetida
             message: 'Contagem iniciada',
             note: null,
             user_id,
             to_user_id: user_id
-        })
+        });
 
-        /*
-                const stepRes = await db.query(`
-                INSERT INTO accounting_invoice_steps
-                  (invoice_id, from_step, to_step, user_id, message, created_at)
-                VALUES ($1, 'estoque', 'estoque', $2, 'Contagem iniciada', NOW())
-                RETURNING id
-            `, [invoice_id, user_id]);
-        */
         const step_id = updateStep.step[0].id;
 
-        // --- cria contagem ---
+
+        // 5️⃣ Criar nova contagem para o novo step
         const countRes = await db.query(`
-        INSERT INTO accounting_invoice_counts (step_id, user_id, status)
-        VALUES ($1, $2, 'OPEN')
-        RETURNING id
-    `, [step_id, user_id]);
+            INSERT INTO accounting_invoice_counts (step_id, user_id, status)
+            VALUES ($1, $2, 'OPEN')
+            RETURNING id
+        `, [step_id, user_id]);
 
         const count_id = countRes.rows[0].id;
 
-        // --- SE RECONTAGEM: copiar divergentes ---
+
+        // 6️⃣ Recontagem: copiar divergentes
         if (inv.last_count_step_id) {
 
             const lastCountRes = await db.query(`
-            SELECT id FROM accounting_invoice_counts
-            WHERE step_id = $1
-            ORDER BY id DESC
-            LIMIT 1
-        `, [inv.last_count_step_id]);
+                SELECT id 
+                FROM accounting_invoice_counts
+                WHERE step_id = $1
+                ORDER BY id DESC
+                LIMIT 1
+            `, [inv.last_count_step_id]);
 
             const prev_count_id = lastCountRes.rows?.[0]?.id;
 
             if (prev_count_id) {
                 await db.query(`
-                INSERT INTO accounting_invoice_count_items
-                  (count_id, item_number, description, ncm, codigo, unidade, qty_nf, qty_counted)
-                SELECT
-                  $1,
-                  item_number,
-                  description,
-                  ncm,
-                  codigo,
-                  unidade,
-                  qty_nf,
-                  CASE 
-        			WHEN  (qty_nf <> qty_counted OR qty_counted IS NULL) THEN NULL
-        			ELSE qty_nf
-    			 END AS qty_counted
-                FROM accounting_invoice_count_items
-                WHERE count_id = $2
-            `, [count_id, prev_count_id]);
+                    INSERT INTO accounting_invoice_count_items
+                      (count_id, item_number, description, ncm, codigo, unidade, qty_nf, qty_counted)
+                    SELECT
+                      $1,
+                      item_number,
+                      description,
+                      ncm,
+                      codigo,
+                      unidade,
+                      qty_nf,
+                      CASE 
+                        WHEN (qty_nf <> qty_counted OR qty_counted IS NULL) THEN NULL
+                        ELSE qty_nf
+                      END AS qty_counted
+                    FROM accounting_invoice_count_items
+                    WHERE count_id = $2
+                `, [count_id, prev_count_id]);
             }
         }
+
+        // 7️⃣ 1ª contagem: importar itens do ERP
         else {
-            // --- 1ª contagem: importar itens do SAAM ---
+
             const nf = await this.getNFByKey(inv.invoice_key);
-            if (!nf.saam.success) throw new Error("NF não encontrada no SAAM");
 
-            if (!nf.erp.success) throw new Error("NF não encontrada no ERP");
+            if (!nf.saam.success)
+                throw new Error("NF não encontrada no SAAM");
 
+            if (!nf.erp.success)
+                throw new Error("NF não encontrada no ERP");
 
             for (const it of nf.erp.nf.itens) {
                 await db.query(`
-                INSERT INTO accounting_invoice_count_items
-                  (count_id, item_number, description, ncm, codigo, unidade, qty_nf)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-            `, [
+                    INSERT INTO accounting_invoice_count_items
+                      (count_id, item_number, description, ncm, codigo, unidade, qty_nf)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                `, [
                     count_id,
                     it.item,
                     it.produto_desc,
@@ -793,16 +875,6 @@ module.exports = {
             }
         }
 
-        /*
-        // --- Atualiza invoice ---
-        await db.query(`
-        UPDATE accounting_invoices
-        SET last_count_step_id = $1,
-            current_step = 'estoque',
-            updated_at = NOW()
-        WHERE id = $2
-    `, [step_id, invoice_id]);
-        */
 
         return { count_id, step_id };
     },

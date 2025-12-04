@@ -40,7 +40,7 @@ router.get('/:id', requireLevel(1), async (req, res) => {
 // GET invoices by step
 router.get('/step/:step', requireLevel(1), async (req, res) => {
   try {
-    const data = await service.listByStep(req.params.step);
+    const data = await service.listByStep(req.params.step, req.user.id);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
