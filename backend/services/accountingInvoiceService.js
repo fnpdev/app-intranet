@@ -519,7 +519,7 @@ module.exports = {
 
     async getNFERP(erpFornecedorCod, erpFornecedorLoja, erpNumeroNota) {
         const sql = `
-           SELECT DISTINCT
+            SELECT DISTINCT
                 SF1.F1_FILIAL                                as filial,
                 SF1.F1_DOC                                   as numero,
                 SF1.F1_FORNECE                               as fornecedor,
@@ -531,14 +531,15 @@ module.exports = {
                 CONCAT('/contabil/constula-nf-chave/',trim(SF1.F1_CHVNFE)) as link_chave,
 
                 (
-                    SELECT
-                        TRIM(SD1.D1_ITEM)         AS item,
+
+                SELECT
+                        ROW_NUMBER() OVER (ORDER BY SB1.B1_DESC ASC) AS item,
                         TRIM(SD1.D1_COD)          AS produto,
                         TRIM(SB1.B1_DESC)         AS produto_desc,
                         TRIM(SD1.D1_UM)           AS unide_medida,
-                        SD1.D1_QUANT              AS qtde,
-                        SD1.D1_VUNIT              AS valor,
-                        SD1.D1_TOTAL              AS total
+                        SUM(SD1.D1_QUANT)         AS qtde,
+                        SUM(SD1.D1_VUNIT)         AS valor,
+                        SUM(SD1.D1_TOTAL)         AS total
                     FROM SD1010 SD1
                     LEFT JOIN SB1010 SB1 
                       ON SB1.B1_FILIAL = LEFT(SD1.D1_FILIAL, 2)
@@ -549,6 +550,13 @@ module.exports = {
                      AND SD1.D1_LOJA = SF1.F1_LOJA
                      AND SD1.D1_SERIE = SF1.F1_SERIE
                      AND SD1.D1_DOC = SF1.F1_DOC
+                     GROUP BY 
+                        SD1.D1_COD,
+                        SB1.B1_DESC,
+                        SD1.D1_UM
+                     ORDER BY 
+                        SB1.B1_DESC ASC
+
                      FOR JSON PATH
                 ) AS itens
 
