@@ -50,7 +50,7 @@ async function getPageDefinition(pageKey) {
 
   // 1️⃣ Busca página
   const sqlPage = `
-    SELECT id, key, name, layout, is_active
+    SELECT id, key, name, layout, is_active, reports
     FROM intranet_pages
     WHERE key = $1 AND is_active = TRUE
     LIMIT 1;

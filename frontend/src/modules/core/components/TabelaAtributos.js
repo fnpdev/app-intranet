@@ -1,7 +1,16 @@
+// frontend/src/modules/core/components/TabelaAtributos.js
+
 import React from 'react';
 import {
-  Typography, Table, TableBody, TableCell,
-  TableHead, TableRow, IconButton, Box
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  IconButton,
+  Box,
+  Checkbox
 } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import { materialPalette } from '../../../utils/materialPalette';
@@ -12,14 +21,11 @@ const REACT_APP_LINK = process.env.REACT_APP_LINK;
 const formatarData = (valor) => {
   if (!valor) return valor;
   const str = valor.toString().trim();
-  if (!/^\d{8}$/.test(str)) return valor; // não é formato esperado
-  const ano = str.substring(0, 4);
-  const mes = str.substring(4, 6);
-  const dia = str.substring(6, 8);
-  return `${dia}/${mes}/${ano}`;
+  if (!/^\d{8}$/.test(str)) return valor;
+  return `${str.substring(6, 8)}/${str.substring(4, 6)}/${str.substring(0, 4)}`;
 };
 
-// 🔹 Função para formatar valores numéricos
+// 🔹 Função para formatar valores monetários
 const formatarValor = (valor) => {
   if (valor === null || valor === undefined) return valor;
   const numero = Number(valor);
@@ -30,12 +36,19 @@ const formatarValor = (valor) => {
   });
 };
 
-export default function TabelaAtributos({ dados }) {
-  if (!dados || dados.length === 0) return (
-    <Typography sx={{ mt: 2, ml: 2, color: '#999' }}>
-      Nenhum dado cadastrado para este grupo.
-    </Typography>
-  );
+export default function TabelaAtributos({
+  dados = [],
+  selectable = false,
+  selectedRows = [],
+  onToggleRow
+}) {
+  if (!dados || dados.length === 0) {
+    return (
+      <Typography sx={{ mt: 2, ml: 2, color: '#999' }}>
+        Nenhum dado cadastrado para este grupo.
+      </Typography>
+    );
+  }
 
   const temCorFundo = dados.some(item => item.cor_status);
 
@@ -44,10 +57,10 @@ export default function TabelaAtributos({ dados }) {
     col => !col.toLowerCase().startsWith('link_') && col !== 'cor_status'
   );
 
-  const handleLinkClick = (url) => {
+  const handleLinkClick = (e, url) => {
+    e.stopPropagation();
     if (url && url.toString().trim()) {
-      const finalUrl = `${REACT_APP_LINK}${url}`;
-      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+      window.open(`${REACT_APP_LINK}${url}`, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -62,7 +75,6 @@ export default function TabelaAtributos({ dados }) {
     return corFundo;
   };
 
-  // 🔹 Formatar valores dinamicamente
   const formatarValorColuna = (col, valor) => {
     if (col.startsWith('data_')) return formatarData(valor);
     if (col.startsWith('valor_')) return formatarValor(valor);
@@ -73,10 +85,15 @@ export default function TabelaAtributos({ dados }) {
     <Table size="small">
       <TableHead>
         <TableRow>
-          {temCorFundo &&
-            <TableCell sx={{ width: 40, textAlign: 'center', bgcolor: '#e3eaf2' }} />
-          }
-          {colunas.map((col) => (
+          {selectable && (
+            <TableCell sx={{ width: 40, bgcolor: '#e3eaf2' }} />
+          )}
+
+          {temCorFundo && (
+            <TableCell sx={{ width: 40, bgcolor: '#e3eaf2' }} />
+          )}
+
+          {colunas.map(col => (
             <TableCell
               key={col}
               sx={{
@@ -94,63 +111,89 @@ export default function TabelaAtributos({ dados }) {
       </TableHead>
 
       <TableBody>
-        {dados.map((linha, idx) => (
-          <TableRow key={idx} hover>
-            {temCorFundo &&
-              <TableCell align="center">
-                {'cor_status' in linha && linha.cor_status ?
-                  <Box
-                    sx={{
-                      display: 'inline-block',
-                      width: 18,
-                      height: 18,
-                      borderRadius: '50%',
-                      background: getPaletteColor(linha.cor_status),
-                      border: '1.5px solid #eee'
-                    }}
-                  /> : null
+        {dados.map((linha, idx) => {
+          const selecionada = selectable && selectedRows.includes(idx);
+
+          return (
+            <TableRow
+              key={idx}
+              hover
+              selected={selecionada}
+              onClick={() => selectable && onToggleRow?.(idx)}
+              sx={{
+                cursor: selectable ? 'pointer' : 'default',
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(25, 118, 210, 0.08)'
                 }
-              </TableCell>
-            }
-
-            {colunas.map((col) => {
-              const linkKey = `link_${col}`;
-              const link = linha[linkKey];
-
-              return (
+              }}
+            >
+              {selectable && (
                 <TableCell
-                  key={col}
-                  sx={{
-                    fontFamily: 'Roboto Mono, monospace',
-                    fontSize: '0.93rem',
-                    whiteSpace: 'nowrap'
-                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  padding="checkbox"
                 >
-                  {/* 🔹 Aplicação da formatação dinâmica */}
-                  {formatarValorColuna(col, linha[col])}
+                  <Checkbox
+                    size="small"
+                    checked={selecionada}
+                    onChange={() => onToggleRow?.(idx)}
+                  />
+                </TableCell>
+              )}
 
-                  {!!link && (
-                    <IconButton
-                      size="small"
-                      onClick={() => handleLinkClick(link)}
+              {temCorFundo && (
+                <TableCell align="center">
+                  {'cor_status' in linha && linha.cor_status && (
+                    <Box
                       sx={{
-                        ml: 1,
-                        color: '#1976d2',
-                        '&:hover': {
-                          color: '#1565c0',
-                          backgroundColor: 'rgba(25, 118, 210, 0.04)'
-                        }
+                        width: 18,
+                        height: 18,
+                        borderRadius: '50%',
+                        background: getPaletteColor(linha.cor_status),
+                        border: '1.5px solid #eee',
+                        display: 'inline-block'
                       }}
-                      title="Abrir link"
-                    >
-                      <OpenInNew fontSize="small" />
-                    </IconButton>
+                    />
                   )}
                 </TableCell>
-              )
-            })}
-          </TableRow>
-        ))}
+              )}
+
+              {colunas.map(col => {
+                const link = linha[`link_${col}`];
+
+                return (
+                  <TableCell
+                    key={col}
+                    sx={{
+                      fontFamily: 'Roboto Mono, monospace',
+                      fontSize: '0.93rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {formatarValorColuna(col, linha[col])}
+
+                    {!!link && (
+                      <IconButton
+                        size="small"
+                        sx={{
+                          ml: 1,
+                          color: '#1976d2',
+                          '&:hover': {
+                            color: '#1565c0',
+                            backgroundColor: 'rgba(25,118,210,0.04)'
+                          }
+                        }}
+                        onClick={(e) => handleLinkClick(e, link)}
+                        title="Abrir link"
+                      >
+                        <OpenInNew fontSize="small" />
+                      </IconButton>
+                    )}
+                  </TableCell>
+                );
+              })}
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
