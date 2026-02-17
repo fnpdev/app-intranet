@@ -9,8 +9,7 @@ const { getLastDayOfMonth } = require("../utils/dateUtils");
  * O backend valida a etapa atual da invoice.
  */
 const STEPS_ALLOWED_TO_COUNT = [
-    "estoque",
-    "almoxarifado",
+    "contagem",
     "insumo",
     "gado",
     "combustivel"

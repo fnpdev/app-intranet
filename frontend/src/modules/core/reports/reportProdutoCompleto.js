@@ -73,8 +73,13 @@ export function ReportProdutoCompleto({ itens, usuario }) {
                         <th>Descrição</th>
                         <th>UM</th>
                         <th>Qtde</th>
-                        <th>Vlr Unit.</th>
-                        <th>Total</th>
+                        <th>SA</th>
+                        <th>SA Solic</th>
+                        <th>SA Qtde</th>
+                        <th>SC</th>
+                        <th>SC Solic</th>
+                        <th>SC Qtde</th>
+                        <th>Qtde Entregue</th>
                     </tr>
                 </thead>
 
@@ -86,8 +91,13 @@ export function ReportProdutoCompleto({ itens, usuario }) {
                             <td>{row.produto_desc ?? ''}</td>
                             <td align="center">{row.unide_medida ?? ''}</td>
                             <td align="right">{row.qtde ?? ''}</td>
-                            <td align="right">{formatMoney(row.valor)}</td>
-                            <td align="right">{formatMoney(row.total)}</td>
+                            <td align="right">{row.sa}</td>
+                            <td align="right">{row.sa_solicitante}</td>
+                            <td align="right">{row.sa_qtde}</td>
+                            <td align="right">{row.sc}</td>
+                            <td align="right">{row.sc_solicitante}</td>
+                            <td align="right">{row.sc_qtde}</td>
+                            <td align="right"></td>
                         </tr>
                     ))}
                 </tbody>
