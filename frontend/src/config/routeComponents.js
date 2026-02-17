@@ -19,6 +19,7 @@ import InvoiceCountPage from '../modules/accounting/pages/InvoiceCountPage'
 import InvoiceInsumoPage from '../modules/accounting/pages/InvoiceInsumoPage'
 import InvoiceCombustivelPage from '../modules/accounting/pages/InvoiceCombustivelPage'
 import InvoiceGadoPage from '../modules/accounting/pages/InvoiceGadoPage'
+import InvoicePortariaScanPage from '../modules/accounting/pages/InvoicePortariaScanPage'
 
 /**
  * 🔹 Função que carrega componentes dinâmicos a partir do nome vindo do backend
@@ -42,7 +43,8 @@ export const loadDynamicComponent = (name) => {
       InvoiceCountPage,
       InvoiceInsumoPage,
       InvoiceCombustivelPage,
-      InvoiceGadoPage
+      InvoiceGadoPage,
+      InvoicePortariaScanPage
     };
 
     // Normaliza o nome (aceita variações vindas do banco)
